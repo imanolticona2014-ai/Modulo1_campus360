@@ -1,6 +1,5 @@
 package com.campus360.identidad.controller;
 
-import com.campus360.identidad.domain.Rol;
 import com.campus360.identidad.service.UsuarioService;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,7 +22,7 @@ public class UsuarioController {
     }
     
     @GetMapping("/roles")
-    public List<Rol> listarRoles() {
+    public List<Map<String, Object>> listarRoles() {
         return usuarioService.listarRoles();
     }
     

@@ -1,34 +1,34 @@
 package com.campus360.identidad.repository;
-import com.campus360.identidad.domain.Usuario;
-import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.campus360.identidad.domain.Usuario;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Repository
-public class UsuarioRepository {
+public interface UsuarioRepository extends JpaRepository<Usuario, String> {
     
-    private final List<Usuario> usuarios = new ArrayList<>();
+    Optional<Usuario> findByCorreo(String correo);
     
-    public UsuarioRepository() {
-        // Datos dummy para pruebas
-        usuarios.add(new Usuario("1", "estudiante@campus360.com", "Juan Perez", "ESTUDIANTE"));
-        usuarios.add(new Usuario("2", "admin@campus360.com", "Ana Lopez", "ADMIN"));
-    }
+    boolean existsByCorreo(String correo);
     
-    public Optional<Usuario> findByCorreo(String correo) {
-        return usuarios.stream()
-            .filter(u -> u.getCorreo().equals(correo))
-            .findFirst();
-    }
+    @Modifying
+    @Transactional
+    @Query("UPDATE Usuario u SET u.intentosFallidos = u.intentosFallidos + 1 WHERE u.correo = :correo")
+    void incrementarIntentos(@Param("correo") String correo);
     
-    public Usuario save(Usuario usuario) {
-        usuarios.add(usuario);
-        return usuario;
-    }
+    @Modifying
+    @Transactional
+    @Query("UPDATE Usuario u SET u.intentosFallidos = 0 WHERE u.correo = :correo")
+    void resetearIntentos(@Param("correo") String correo);
     
-    public List<Usuario> findAll() {
-        return new ArrayList<>(usuarios);
-    }
+    @Modifying
+    @Transactional
+    @Query("UPDATE Usuario u SET u.estado = 'BLOQUEADO', u.bloqueoHasta = :hasta WHERE u.correo = :correo")
+    void bloquearCuenta(@Param("correo") String correo, @Param("hasta") LocalDateTime hasta);
 }
