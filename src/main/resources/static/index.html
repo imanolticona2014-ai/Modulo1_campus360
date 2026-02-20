@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G1 - Identidad y Accesos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="login-container">
+    <div class="login-card">
+        <h1>Bienvenido</h1>
+        <p class="subtitle">Ingresa tus credenciales para acceder</p>
+        
+        <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>Correo electrónico</label>
+                <input type="email" id="correo" value="admin.sistema@campus360.com" placeholder="correo@campus360.com">
+            </div>
+            
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="password" value="123456" placeholder="••••••••">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">Iniciar Sesión</button>
+        </form>
+        
+        <div class="login-help">
+            <p><strong>Usuarios de prueba:</strong></p>
+            <p><code>admin.sistema@campus360.com</code> / 123456 (Administrador)</p>
+            <p><code>estudiante@campus360.com</code> / 123456 (Estudiante)</p>
+            <p><code>profesor.ana@campus360.com</code> / 123456 (Docente)</p>
+        </div>
+    </div>
+    <script src="/js/app.js"></script>
+</body>
+</html>

@@ -14,7 +14,8 @@ import java.util.Optional;
 
 @Repository
 public interface TokenRepository extends JpaRepository<Token, Long> {
-    
+    List<Token> findAll();
+
     // Buscar tokens de un usuario
     List<Token> findByUsuarioId(String usuarioId);
     

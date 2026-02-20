@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Docente - G1 Identidad</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="app-header">
+            <h1>Portal del Docente</h1>
+            <button onclick="handleLogout()" class="btn btn-secondary">Cerrar Sesión</button>
+        </div>
+
+        <div class="user-info-bar">
+            <p>Bienvenido, <strong id="user-name">Docente</strong></p>
+            <p id="user-email"></p>
+        </div>
+
+        <!-- Información de la Cuenta -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Mi Cuenta</h2>
+            </div>
+            <div id="info-cuenta" class="info-card">
+                <!-- Se carga dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Sesiones Activas -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Mis Sesiones Activas</h2>
+            </div>
+            <p class="subtitle" style="margin-bottom: 1rem; color: #6b7280;">
+                Dispositivos donde has iniciado sesión recientemente.
+            </p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Dispositivo</th>
+                            <th>Dirección IP</th>
+                            <th>Fecha de Inicio</th>
+                            <th>Expira en</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mis-sesiones-tbody">
+                        <tr>
+                            <td colspan="6" class="empty-state">
+                                <p>Cargando sesiones...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Cursos Asignados -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Mis Cursos</h2>
+            </div>
+            <div class="roles-grid">
+                <div class="role-card">
+                    <h4>Matemáticas Básicas</h4>
+                    <div class="permissions">
+                        <span class="permission-tag">MAT-101</span>
+                        <span class="permission-tag">30 estudiantes</span>
+                    </div>
+                </div>
+                <div class="role-card">
+                    <h4>Programación Java</h4>
+                    <div class="permissions">
+                        <span class="permission-tag">INF-202</span>
+                        <span class="permission-tag">25 estudiantes</span>
+                    </div>
+                </div>
+                <div class="role-card">
+                    <h4>Bases de Datos</h4>
+                    <div class="permissions">
+                        <span class="permission-tag">INF-301</span>
+                        <span class="permission-tag">28 estudiantes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Horario -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Horario de Clases</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Día</th>
+                            <th>Curso</th>
+                            <th>Hora</th>
+                            <th>Aula</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Lunes</td>
+                            <td>Matemáticas Básicas</td>
+                            <td>08:00 - 10:00</td>
+                            <td>A-101</td>
+                        </tr>
+                        <tr>
+                            <td>Miércoles</td>
+                            <td>Programación Java</td>
+                            <td>10:00 - 12:00</td>
+                            <td>Lab-201</td>
+                        </tr>
+                        <tr>
+                            <td>Viernes</td>
+                            <td>Bases de Datos</td>
+                            <td>14:00 - 16:00</td>
+                            <td>Lab-202</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>

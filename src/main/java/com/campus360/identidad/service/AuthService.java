@@ -168,7 +168,59 @@ public class AuthService {
             })
             .collect(Collectors.toList());
     }
+    public List<Map<String, Object>> obtenerTodasLasSesiones() {
+        List<Token> todosLosTokens = tokenRepository.findAll();
+        LocalDateTime ahora = LocalDateTime.now();
     
+        return todosLosTokens.stream()
+            .filter(token -> !token.getRevocado() && token.getFechaExpiracion().isAfter(ahora))
+            .map(token -> {
+                Map<String, Object> sesion = new HashMap<>();
+                sesion.put("id", token.getId());
+                sesion.put("tokenPreview", token.getToken().substring(0, Math.min(20, token.getToken().length())) + "...");
+                sesion.put("usuarioId", token.getUsuario().getId());
+                sesion.put("usuarioCorreo", token.getUsuario().getCorreo());
+                sesion.put("usuarioNombre", token.getUsuario().getNombres() + " " + token.getUsuario().getApellidos());
+                sesion.put("fechaCreacion", token.getFechaCreacion());
+                sesion.put("fechaExpiracion", token.getFechaExpiracion());
+                sesion.put("minutosRestantes", java.time.Duration.between(ahora, token.getFechaExpiracion()).toMinutes());
+                sesion.put("dispositivo", token.getDispositivo() != null ? token.getDispositivo() : "Desconocido");
+                sesion.put("ip", token.getIpAddress() != null ? token.getIpAddress() : "No registrada");
+                return sesion;
+            })
+            .collect(Collectors.toList());
+    }
+
+    public List<Map<String, Object>> buscarSesionesPorTermino(String termino) {
+        List<Token> todosLosTokens = tokenRepository.findAll();
+        LocalDateTime ahora = LocalDateTime.now();
+    
+        // Buscar usuarios que coincidan con el término (ID, correo o nombre)
+        return todosLosTokens.stream()
+            .filter(token -> !token.getRevocado() && token.getFechaExpiracion().isAfter(ahora))
+            .filter(token -> {
+                Usuario u = token.getUsuario();
+                String busqueda = termino.toLowerCase();
+                return u.getId().toLowerCase().contains(busqueda) ||
+                       u.getCorreo().toLowerCase().contains(busqueda) ||
+                    (u.getNombres() + " " + u.getApellidos()).toLowerCase().contains(busqueda);
+                })
+            .map(token -> {
+                Map<String, Object> sesion = new HashMap<>();
+                sesion.put("id", token.getId());
+                sesion.put("tokenPreview", token.getToken().substring(0, Math.min(20, token.getToken().length())) + "...");
+                sesion.put("usuarioId", token.getUsuario().getId());
+                sesion.put("usuarioCorreo", token.getUsuario().getCorreo());
+                sesion.put("usuarioNombre", token.getUsuario().getNombres() + " " + token.getUsuario().getApellidos());
+                sesion.put("fechaCreacion", token.getFechaCreacion());
+                sesion.put("fechaExpiracion", token.getFechaExpiracion());
+                sesion.put("minutosRestantes", java.time.Duration.between(ahora, token.getFechaExpiracion()).toMinutes());
+                sesion.put("dispositivo", token.getDispositivo() != null ? token.getDispositivo() : "Desconocido");
+                sesion.put("ip", token.getIpAddress() != null ? token.getIpAddress() : "No registrada");
+                return sesion;
+            })
+        .collect(Collectors.toList());
+    }
     @Transactional
     public void revocarSesion(Long tokenId) {
         Token token = tokenRepository.findById(tokenId)

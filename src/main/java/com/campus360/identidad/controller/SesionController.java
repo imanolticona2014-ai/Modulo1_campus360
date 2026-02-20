@@ -20,6 +20,14 @@ public class SesionController {
     public List<Map<String, Object>> listarSesionesActivas(@PathVariable String usuarioId) {
         return authService.obtenerSesionesActivas(usuarioId);
     }
+    @GetMapping("/todas")
+    public List<Map<String, Object>> listarTodasLasSesiones() {
+        return authService.obtenerTodasLasSesiones();
+    }
+    @GetMapping("/buscar")
+    public List<Map<String, Object>> buscarSesionesPorUsuario(@RequestParam String termino) {
+        return authService.buscarSesionesPorTermino(termino);
+    }
     
     @DeleteMapping("/{tokenId}")
     public Map<String, String> revocarSesion(@PathVariable Long tokenId) {

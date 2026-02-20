@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrativo - G1 Identidad</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="app-header">
+            <h1>Panel de Administración</h1>
+            <button onclick="handleLogout()" class="btn btn-secondary">Cerrar Sesión</button>
+        </div>
+
+        <div class="user-info-bar">
+            <p>Bienvenido, <strong id="user-name">Administrador</strong></p>
+            <p id="user-email"></p>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Estadísticas del Sistema</h2>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total de Sesiones</h3>
+                    <div class="number" id="stats-total">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Sesiones Activas</h3>
+                    <div class="number" id="stats-activas">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Sesiones Revocadas</h3>
+                    <div class="number" id="stats-revocadas">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Sesiones Expiradas</h3>
+                    <div class="number" id="stats-expiradas">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Roles del Sistema -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Roles y Permisos</h2>
+            </div>
+            <div id="roles-container" class="roles-grid">
+                <!-- Se carga dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Búsqueda de Usuario -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Consultar Usuario</h2>
+            </div>
+            <div class="search-section">
+                <input type="text" id="buscarUsuario" placeholder="Buscar por nombre, correo o ID...">
+                <button onclick="buscarSesionesUsuario()" class="btn btn-primary">Buscar</button>
+            </div>
+            <div id="resultadoBusqueda"></div>
+        </div>
+
+        <!-- Sesiones Activas -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Sesiones Activas</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuario</th>
+                            <th>Token</th>
+                            <th>Dispositivo</th>
+                            <th>IP</th>
+                            <th>Tiempo Restante</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sesiones-tbody">
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <p>Cargando sesiones...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
