@@ -3,99 +3,672 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Administrativo - G1 Identidad</title>
+    <title>Panel Administrativo - Campus360</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* ── NAV TABS ── */
+        .admin-nav {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+        .nav-btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #6b7280;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .nav-btn.active {
+            background: #4f46e5;
+            color: white;
+            box-shadow: 0 2px 8px rgba(79,70,229,0.3);
+        }
+        .nav-btn:hover:not(.active) {
+            background: #f3f4f6;
+            color: #1a1f36;
+        }
+
+        /* Secciones */
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* Stats colores */
+        .stat-total .number   { color: #4f46e5; }
+        .stat-activas .number  { color: #10b981; }
+        .stat-revocadas .number { color: #ef4444; }
+        .stat-expiradas .number { color: #f59e0b; }
+        .stat-icon { font-size: 1.5rem; margin-bottom: 0.5rem; display: block; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            animation: slideUp 0.2s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .modal-header h3 { font-size: 1.2rem; font-weight: 600; color: #1a1f36; }
+        .modal-close {
+            background: #f3f4f6;
+            border: none;
+            border-radius: 8px;
+            width: 32px; height: 32px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            color: #6b7280;
+        }
+        .modal-close:hover { background: #e5e7eb; color: #1a1f36; }
+        .modal .form-group { margin-bottom: 1rem; }
+        .modal .form-group label { font-size: 0.85rem; font-weight: 500; color: #374151; margin-bottom: 0.4rem; display: block; }
+        .modal .form-group input,
+        .modal .form-group select {
+            width: 100%;
+            padding: 0.65rem 0.9rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .modal .form-group input:focus,
+        .modal .form-group select:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+        }
+        .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+        .modal-actions .btn { flex: 1; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: white;
+            z-index: 2000;
+            animation: toastIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .toast.success { background: #10b981; }
+        .toast.error   { background: #ef4444; }
+        @keyframes toastIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to   { transform: translateX(0);     opacity: 1; }
+        }
+
+        /* Estado badges */
+        .estado-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        .estado-ACTIVO    { background: #d1fae5; color: #065f46; }
+        .estado-INACTIVO  { background: #f3f4f6; color: #6b7280; }
+        .estado-BLOQUEADO { background: #fee2e2; color: #991b1b; }
+
+        /* Acciones */
+        .acciones-grupo { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+        /* Filtros */
+        .filtros-bar {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filtros-bar input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.6rem 0.9rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .filtros-bar select {
+            padding: 0.6rem 0.9rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        /* Contraseña temporal */
+        .pass-temporal {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #92400e;
+        }
+        .pass-temporal strong { display: block; margin-bottom: 0.25rem; }
+        .pass-temporal code { font-size: 1rem; font-family: monospace; letter-spacing: 0.1em; }
+
+        .tabla-usuarios td { vertical-align: middle; }
+    </style>
 </head>
 <body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="navbar-logo">G1</div>
+            <span class="navbar-title">Campus<span>360</span></span>
+        </div>
+        <div class="navbar-user">
+            <div class="navbar-user-info">
+                <div class="navbar-user-name" id="user-name">Administrador</div>
+                <div class="navbar-user-role" id="user-email"></div>
+            </div>
+            <div class="navbar-avatar" id="user-avatar">A</div>
+            <button onclick="handleLogout()" class="btn btn-secondary btn-sm">Cerrar Sesión</button>
+        </div>
+    </nav>
+
     <div class="container">
-        <div class="app-header">
-            <h1>Panel de Administración</h1>
-            <button onclick="handleLogout()" class="btn btn-secondary">Cerrar Sesión</button>
-        </div>
 
-        <div class="user-info-bar">
-            <p>Bienvenido, <strong id="user-name">Administrador</strong></p>
-            <p id="user-email"></p>
-        </div>
-
-        <!-- Estadísticas -->
+        <!-- Bienvenida (siempre visible) -->
         <div class="card">
             <div class="card-header">
-                <h2>Estadísticas del Sistema</h2>
+                <h2>👋 Bienvenido</h2>
             </div>
+            <div id="bienvenida" class="info-card">
+                <p class="loading">Cargando...</p>
+            </div>
+        </div>
+
+        <!-- Nav tabs -->
+        <div class="admin-nav">
+            <button class="nav-btn active" onclick="mostrarSeccion('dashboard', this)">📊 Dashboard</button>
+            <button class="nav-btn" onclick="mostrarSeccion('usuarios', this)">👥 Usuarios</button>
+            <button class="nav-btn" onclick="mostrarSeccion('roles', this)">🔐 Roles</button>
+            <button class="nav-btn" onclick="mostrarSeccion('sesiones', this)">🖥️ Sesiones</button>
+        </div>
+
+        <!-- ══ DASHBOARD ══ -->
+        <div id="sec-dashboard" class="section active">
             <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Total de Sesiones</h3>
+                <div class="stat-card stat-total">
+                    <span class="stat-icon">📋</span>
+                    <h3>Total Sesiones</h3>
                     <div class="number" id="stats-total">0</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card stat-activas">
+                    <span class="stat-icon">✅</span>
                     <h3>Sesiones Activas</h3>
                     <div class="number" id="stats-activas">0</div>
                 </div>
-                <div class="stat-card">
-                    <h3>Sesiones Revocadas</h3>
+                <div class="stat-card stat-revocadas">
+                    <span class="stat-icon">🚫</span>
+                    <h3>Revocadas</h3>
                     <div class="number" id="stats-revocadas">0</div>
                 </div>
-                <div class="stat-card">
-                    <h3>Sesiones Expiradas</h3>
+                <div class="stat-card stat-expiradas">
+                    <span class="stat-icon">⏰</span>
+                    <h3>Expiradas</h3>
                     <div class="number" id="stats-expiradas">0</div>
                 </div>
             </div>
+
+            <div class="card">
+                <div class="card-header"><h2>Información del Sistema</h2></div>
+                <div class="info-card">
+                    <p><strong>Módulo:</strong> G1 — Identidad y Accesos</p>
+                    <p><strong>Plataforma:</strong> Campus360 — UNMSM</p>
+                    <p><strong>Stack:</strong> Spring Boot + JWT + BCrypt + MySQL</p>
+                    <p><strong>JWT Expiración:</strong> 30 min | Refresh: 7 días</p>
+                </div>
+            </div>
         </div>
 
-        <!-- Roles del Sistema -->
-        <div class="card">
-            <div class="card-header">
-                <h2>Roles y Permisos</h2>
-            </div>
-            <div id="roles-container" class="roles-grid">
-                <!-- Se carga dinámicamente -->
+        <!-- ══ USUARIOS ══ -->
+        <div id="sec-usuarios" class="section">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Gestión de Usuarios</h2>
+                    <button class="btn btn-primary btn-sm" onclick="abrirModalCrear()">+ Nuevo Usuario</button>
+                </div>
+                <div class="filtros-bar">
+                    <input type="text" id="filtro-usuarios" placeholder="🔍 Buscar por nombre o correo..." oninput="filtrarUsuarios()">
+                    <select id="filtro-estado" onchange="filtrarUsuarios()">
+                        <option value="">Todos los estados</option>
+                        <option value="ACTIVO">Activo</option>
+                        <option value="INACTIVO">Inactivo</option>
+                        <option value="BLOQUEADO">Bloqueado</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" onclick="cargarUsuarios()">↻ Refrescar</button>
+                </div>
+                <div class="table-container">
+                    <table class="tabla-usuarios">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Correo</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Intentos</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usuarios-tbody">
+                            <tr><td colspan="6" class="empty-state"><p>Cargando usuarios...</p></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- Búsqueda de Usuario -->
-        <div class="card">
-            <div class="card-header">
-                <h2>Consultar Usuario</h2>
+        <!-- ══ ROLES ══ -->
+        <div id="sec-roles" class="section">
+            <div class="card">
+                <div class="card-header"><h2>Roles y Permisos</h2></div>
+                <div id="roles-container" class="roles-grid">
+                    <p class="loading">Cargando roles...</p>
+                </div>
             </div>
-            <div class="search-section">
-                <input type="text" id="buscarUsuario" placeholder="Buscar por nombre, correo o ID...">
-                <button onclick="buscarSesionesUsuario()" class="btn btn-primary">Buscar</button>
-            </div>
-            <div id="resultadoBusqueda"></div>
         </div>
 
-        <!-- Sesiones Activas -->
-        <div class="card">
-            <div class="card-header">
-                <h2>Sesiones Activas</h2>
+        <!-- ══ SESIONES ══ -->
+        <div id="sec-sesiones" class="section">
+            <div class="card">
+                <div class="card-header"><h2>Sesiones Activas</h2></div>
+                <div class="filtros-bar">
+                    <input type="text" id="buscarUsuario" placeholder="🔍 Buscar por nombre, correo o ID...">
+                    <button onclick="buscarSesionesUsuario()" class="btn btn-primary btn-sm">Buscar</button>
+                    <button onclick="cargarTodasLasSesiones()" class="btn btn-secondary btn-sm">Ver todas</button>
+                </div>
+                <div id="resultadoBusqueda"></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuario</th>
+                                <th>Token</th>
+                                <th>Dispositivo</th>
+                                <th>IP</th>
+                                <th>Tiempo Restante</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sesiones-tbody">
+                            <tr><td colspan="7" class="empty-state"><p>Cargando sesiones...</p></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Usuario</th>
-                            <th>Token</th>
-                            <th>Dispositivo</th>
-                            <th>IP</th>
-                            <th>Tiempo Restante</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="sesiones-tbody">
-                        <tr>
-                            <td colspan="7" class="empty-state">
-                                <p>Cargando sesiones...</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        </div>
+
+    </div>
+
+    <!-- ══ MODAL CREAR USUARIO ══ -->
+    <div class="modal-overlay" id="modal-crear">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Nuevo Usuario</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-crear')">✕</button>
+            </div>
+            <div class="form-group">
+                <label>Nombre *</label>
+                <input type="text" id="nuevo-nombre" placeholder="Ej: Juan">
+            </div>
+            <div class="form-group">
+                <label>Apellidos</label>
+                <input type="text" id="nuevo-apellidos" placeholder="Ej: Pérez García">
+            </div>
+            <div class="form-group">
+                <label>Correo electrónico *</label>
+                <input type="email" id="nuevo-correo" placeholder="correo@campus360.com">
+            </div>
+            <div class="form-group">
+                <label>Rol</label>
+                <select id="nuevo-rol">
+                    <option value="">Sin rol</option>
+                    <option value="rol-estudiante-001">ESTUDIANTE</option>
+                    <option value="rol-docente-001">DOCENTE</option>
+                    <option value="rol-admin-001">ADMIN</option>
+                </select>
+            </div>
+            <div id="resultado-crear"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="cerrarModal('modal-crear')">Cancelar</button>
+                <button class="btn btn-primary" onclick="crearUsuario()">Crear Usuario</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ MODAL EDITAR USUARIO ══ -->
+    <div class="modal-overlay" id="modal-editar">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Editar Usuario</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-editar')">✕</button>
+            </div>
+            <input type="hidden" id="editar-id">
+            <div class="form-group">
+                <label>Nombre *</label>
+                <input type="text" id="editar-nombre">
+            </div>
+            <div class="form-group">
+                <label>Apellidos</label>
+                <input type="text" id="editar-apellidos">
+            </div>
+            <div class="form-group">
+                <label>Correo</label>
+                <input type="email" id="editar-correo">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="cerrarModal('modal-editar')">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarEdicion()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ MODAL ASIGNAR ROL ══ -->
+    <div class="modal-overlay" id="modal-rol">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Asignar Rol</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-rol')">✕</button>
+            </div>
+            <input type="hidden" id="rol-usuario-id">
+            <p id="rol-usuario-nombre" style="color:#6b7280; margin-bottom:1rem;"></p>
+            <div class="form-group">
+                <label>Nuevo Rol</label>
+                <select id="rol-nuevo-id">
+                    <option value="rol-estudiante-001">ESTUDIANTE</option>
+                    <option value="rol-docente-001">DOCENTE</option>
+                    <option value="rol-admin-001">ADMIN</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="cerrarModal('modal-rol')">Cancelar</button>
+                <button class="btn btn-primary" onclick="confirmarAsignarRol()">Asignar Rol</button>
             </div>
         </div>
     </div>
 
     <script src="/js/app.js"></script>
+    <script>
+        // ── NAVEGACIÓN ──
+        function mostrarSeccion(nombre, btn) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('sec-' + nombre).classList.add('active');
+            btn.classList.add('active');
+
+            if (nombre === 'usuarios') cargarUsuarios();
+            if (nombre === 'roles') cargarRoles();
+            if (nombre === 'sesiones') cargarTodasLasSesiones();
+            if (nombre === 'dashboard') cargarEstadisticas();
+        }
+
+        // ── TOAST ──
+        function toast(msg, tipo = 'success') {
+            const t = document.createElement('div');
+            t.className = `toast ${tipo}`;
+            t.innerHTML = (tipo === 'success' ? '✅' : '❌') + ' ' + msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        // ── MODALES ──
+        function abrirModalCrear() {
+            document.getElementById('nuevo-nombre').value = '';
+            document.getElementById('nuevo-apellidos').value = '';
+            document.getElementById('nuevo-correo').value = '';
+            document.getElementById('nuevo-rol').value = '';
+            document.getElementById('resultado-crear').innerHTML = '';
+            document.getElementById('modal-crear').classList.add('open');
+        }
+        function cerrarModal(id) { document.getElementById(id).classList.remove('open'); }
+
+        // ── CRUD USUARIOS ──
+        let usuariosCache = [];
+
+        async function cargarUsuarios() {
+            const tbody = document.getElementById('usuarios-tbody');
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>Cargando...</p></td></tr>';
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`/api/v1/usuarios`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                usuariosCache = await res.json();
+                renderUsuarios(usuariosCache);
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>Error al cargar usuarios</p></td></tr>';
+            }
+        }
+
+        function filtrarUsuarios() {
+            const texto = document.getElementById('filtro-usuarios').value.toLowerCase();
+            const estado = document.getElementById('filtro-estado').value;
+            const filtrados = usuariosCache.filter(u => {
+                const matchTexto = !texto ||
+                    (u.nombreCompleto || '').toLowerCase().includes(texto) ||
+                    (u.correo || '').toLowerCase().includes(texto);
+                const matchEstado = !estado || u.estado === estado;
+                return matchTexto && matchEstado;
+            });
+            renderUsuarios(filtrados);
+        }
+
+        function renderUsuarios(lista) {
+            const tbody = document.getElementById('usuarios-tbody');
+            if (!lista || lista.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No hay usuarios</p></td></tr>';
+                return;
+            }
+            tbody.innerHTML = lista.map(u => `
+                <tr>
+                    <td><strong>${u.nombreCompleto || u.nombre}</strong></td>
+                    <td style="color:#6b7280; font-size:0.9rem;">${u.correo}</td>
+                    <td><span class="permission-tag">${u.rol || 'Sin rol'}</span></td>
+                    <td><span class="estado-badge estado-${u.estado}">${estadoIcon(u.estado)} ${u.estado}</span></td>
+                    <td style="text-align:center;">${u.intentosFallidos || 0}</td>
+                    <td>
+                        <div class="acciones-grupo">
+                            <button class="btn btn-secondary btn-sm" onclick="abrirEditar('${u.id}', '${u.nombre}', '${u.apellidos}', '${u.correo}')">✏️</button>
+                            <button class="btn btn-secondary btn-sm" onclick="abrirAsignarRol('${u.id}', '${u.nombreCompleto}')">🔐</button>
+                            ${u.estado === 'ACTIVO' ? `<button class="btn btn-danger btn-sm" onclick="desactivarUsuario('${u.id}')">🚫</button>` : ''}
+                            ${u.estado === 'INACTIVO' ? `<button class="btn btn-secondary btn-sm" onclick="reactivarUsuario('${u.id}')">✅</button>` : ''}
+                            ${u.estado === 'BLOQUEADO' ? `<button class="btn btn-secondary btn-sm" onclick="desbloquearUsuario('${u.id}')">🔓</button>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function estadoIcon(estado) {
+            return { ACTIVO: '🟢', INACTIVO: '⚪', BLOQUEADO: '🔴' }[estado] || '';
+        }
+
+        async function crearUsuario() {
+            const token = localStorage.getItem('token');
+            const body = {
+                nombre: document.getElementById('nuevo-nombre').value,
+                apellidos: document.getElementById('nuevo-apellidos').value,
+                correo: document.getElementById('nuevo-correo').value,
+                rolId: document.getElementById('nuevo-rol').value
+            };
+            try {
+                const res = await fetch(`/api/v1/usuarios`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    document.getElementById('resultado-crear').innerHTML = `
+                        <div class="pass-temporal">
+                            <strong>✅ Usuario creado exitosamente</strong>
+                            Contraseña temporal: <code>${data.passwordTemporal}</code><br>
+                            <small>Comparte esta contraseña con el usuario de forma segura.</small>
+                        </div>`;
+                    cargarUsuarios();
+                } else {
+                    toast(data.error || 'Error al crear usuario', 'error');
+                }
+            } catch (e) {
+                toast('Error de conexión', 'error');
+            }
+        }
+
+        function abrirEditar(id, nombre, apellidos, correo) {
+            document.getElementById('editar-id').value = id;
+            document.getElementById('editar-nombre').value = nombre;
+            document.getElementById('editar-apellidos').value = apellidos;
+            document.getElementById('editar-correo').value = correo;
+            document.getElementById('modal-editar').classList.add('open');
+        }
+
+        async function guardarEdicion() {
+            const token = localStorage.getItem('token');
+            const id = document.getElementById('editar-id').value;
+            const body = {
+                nombre: document.getElementById('editar-nombre').value,
+                apellidos: document.getElementById('editar-apellidos').value,
+                correo: document.getElementById('editar-correo').value
+            };
+            try {
+                const res = await fetch(`/api/v1/usuarios/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    cerrarModal('modal-editar');
+                    toast('Usuario actualizado exitosamente');
+                    cargarUsuarios();
+                } else {
+                    const data = await res.json();
+                    toast(data.error || 'Error al actualizar', 'error');
+                }
+            } catch (e) {
+                toast('Error de conexión', 'error');
+            }
+        }
+
+        function abrirAsignarRol(usuarioId, nombre) {
+            document.getElementById('rol-usuario-id').value = usuarioId;
+            document.getElementById('rol-usuario-nombre').textContent = 'Usuario: ' + nombre;
+            document.getElementById('modal-rol').classList.add('open');
+        }
+
+        async function confirmarAsignarRol() {
+            const token = localStorage.getItem('token');
+            const usuarioId = document.getElementById('rol-usuario-id').value;
+            const rolId = document.getElementById('rol-nuevo-id').value;
+            try {
+                const res = await fetch(`/api/v1/usuarios/${usuarioId}/roles/${rolId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    cerrarModal('modal-rol');
+                    toast('Rol asignado exitosamente');
+                    cargarUsuarios();
+                } else {
+                    const data = await res.json();
+                    toast(data.error || 'Error al asignar rol', 'error');
+                }
+            } catch (e) {
+                toast('Error de conexión', 'error');
+            }
+        }
+
+        async function desactivarUsuario(id) {
+            if (!confirm('¿Desactivar este usuario?')) return;
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/v1/usuarios/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) { toast('Usuario desactivado'); cargarUsuarios(); }
+            else toast('Error al desactivar', 'error');
+        }
+
+        async function reactivarUsuario(id) {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/v1/usuarios/${id}/reactivar`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) { toast('Usuario reactivado'); cargarUsuarios(); }
+            else toast('Error al reactivar', 'error');
+        }
+
+        async function desbloquearUsuario(id) {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/v1/usuarios/${id}/desbloquear`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) { toast('Usuario desbloqueado'); cargarUsuarios(); }
+            else toast('Error al desbloquear', 'error');
+        }
+
+        // Cerrar modal al hacer click fuera
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', e => {
+                if (e.target === overlay) overlay.classList.remove('open');
+            });
+        });
+    </script>
 </body>
 </html>

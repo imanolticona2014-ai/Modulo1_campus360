@@ -3,38 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Docente - G1 Identidad</title>
+    <title>Portal del Docente - Campus360</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="navbar-logo">G1</div>
+            <span class="navbar-title">Campus<span>360</span></span>
+        </div>
+        <div class="navbar-user">
+            <div class="navbar-user-info">
+                <div class="navbar-user-name" id="user-name">Docente</div>
+                <div class="navbar-user-role" id="user-email"></div>
+            </div>
+            <div class="navbar-avatar" id="user-avatar">D</div>
+            <button onclick="handleLogout()" class="btn btn-secondary btn-sm">Cerrar Sesión</button>
+        </div>
+    </nav>
+
     <div class="container">
-        <div class="app-header">
-            <h1>Portal del Docente</h1>
-            <button onclick="handleLogout()" class="btn btn-secondary">Cerrar Sesión</button>
-        </div>
 
-        <div class="user-info-bar">
-            <p>Bienvenido, <strong id="user-name">Docente</strong></p>
-            <p id="user-email"></p>
-        </div>
-
-        <!-- Información de la Cuenta -->
+        <!-- Bienvenida -->
         <div class="card">
             <div class="card-header">
-                <h2>Mi Cuenta</h2>
+                <h2>👋 Bienvenido</h2>
             </div>
-            <div id="info-cuenta" class="info-card">
-                <!-- Se carga dinámicamente -->
+            <div id="bienvenida" class="info-card">
+                <p class="loading">Cargando...</p>
             </div>
+        </div>
+
+        <!-- Mi Cuenta -->
+        <div class="card">
+            <div class="card-header">
+                <h2>👤 Mi Cuenta</h2>
+            </div>
+            <div id="info-cuenta" class="info-card"></div>
         </div>
 
         <!-- Sesiones Activas -->
         <div class="card">
             <div class="card-header">
-                <h2>Mis Sesiones Activas</h2>
+                <h2>🖥️ Mis Sesiones Activas</h2>
             </div>
-            <p class="subtitle" style="margin-bottom: 1rem; color: #6b7280;">
+            <p style="margin-bottom: 1rem; color: #6b7280; font-size: 0.9rem;">
                 Dispositivos donde has iniciado sesión recientemente.
             </p>
             <div class="table-container">
@@ -50,20 +65,16 @@
                         </tr>
                     </thead>
                     <tbody id="mis-sesiones-tbody">
-                        <tr>
-                            <td colspan="6" class="empty-state">
-                                <p>Cargando sesiones...</p>
-                            </td>
-                        </tr>
+                        <tr><td colspan="6" class="empty-state"><p>Cargando sesiones...</p></td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Cursos Asignados -->
+        <!-- Cursos -->
         <div class="card">
             <div class="card-header">
-                <h2>Mis Cursos</h2>
+                <h2>📚 Mis Cursos</h2>
             </div>
             <div class="roles-grid">
                 <div class="role-card">
@@ -93,7 +104,7 @@
         <!-- Horario -->
         <div class="card">
             <div class="card-header">
-                <h2>Horario de Clases</h2>
+                <h2>📅 Horario de Clases</h2>
             </div>
             <div class="table-container">
                 <table>
@@ -106,30 +117,15 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>Lunes</td>
-                            <td>Matemáticas Básicas</td>
-                            <td>08:00 - 10:00</td>
-                            <td>A-101</td>
-                        </tr>
-                        <tr>
-                            <td>Miércoles</td>
-                            <td>Programación Java</td>
-                            <td>10:00 - 12:00</td>
-                            <td>Lab-201</td>
-                        </tr>
-                        <tr>
-                            <td>Viernes</td>
-                            <td>Bases de Datos</td>
-                            <td>14:00 - 16:00</td>
-                            <td>Lab-202</td>
-                        </tr>
+                        <tr><td>Lunes</td><td>Matemáticas Básicas</td><td>08:00 - 10:00</td><td>A-101</td></tr>
+                        <tr><td>Miércoles</td><td>Programación Java</td><td>10:00 - 12:00</td><td>Lab-201</td></tr>
+                        <tr><td>Viernes</td><td>Bases de Datos</td><td>14:00 - 16:00</td><td>Lab-202</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
-    </div>
 
+    </div>
     <script src="/js/app.js"></script>
 </body>
 </html>

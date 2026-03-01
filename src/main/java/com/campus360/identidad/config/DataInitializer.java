@@ -1,12 +1,9 @@
 package com.campus360.identidad.config;
 
-import com.campus360.identidad.domain.Rol;
-import com.campus360.identidad.domain.Usuario;
 import com.campus360.identidad.repository.RolRepository;
 import com.campus360.identidad.repository.UsuarioRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import java.util.Arrays;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -21,37 +18,23 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Crear roles si no existen
-        if (rolRepository.count() == 0) {
-            Rol estudiante = new Rol("ESTUDIANTE", 
-                Arrays.asList("VER_PERFIL", "SOLICITAR_TRAMITE", "VER_MIS_CURSOS"));
-            
-            Rol docente = new Rol("DOCENTE", 
-                Arrays.asList("VER_PERFIL", "VER_CURSOS", "CALIFICAR"));
-            
-            Rol admin = new Rol("ADMIN", 
-                Arrays.asList("ALL", "GESTIONAR_USUARIOS", "GESTIONAR_ROLES", "VER_AUDITORIA"));
-            
-            rolRepository.saveAll(Arrays.asList(estudiante, docente, admin));
-            
-            System.out.println("Roles creados en MySQL");
-        }
+        // Los datos iniciales se cargan desde el script.sql
+        // Este inicializador solo verifica que la BD esté lista
+        long totalRoles = rolRepository.count();
+        long totalUsuarios = usuarioRepository.count();
 
-        // Crear usuario de prueba si no existe
-        if (!usuarioRepository.existsByCorreo("estudiante@campus360.com")) {
-            Rol rolEstudiante = rolRepository.findByNombre("ESTUDIANTE").orElseThrow();
-            
-            Usuario usuario = new Usuario();
-            usuario.setCorreo("estudianteprueba@campus360.com");
-            usuario.setNombres("Estudiante");
-            usuario.setApellidos("Prueba");
-            usuario.setPasswordHash("$2a$10$N9qo8uLOickgx2ZMRZoMy.Mr/.F5PQsB2Ys5X9X5X9X5X9X5X9X5X9"); // "password123"
-            usuario.setRol(rolEstudiante);
-            usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
-            
-            usuarioRepository.save(usuario);
-            
-            System.out.println("Usuario de prueba creado en MySQL");
-        }
+        System.out.println("==============================================");
+        System.out.println("  Campus360 - G1 Identidad y Accesos");
+        System.out.println("==============================================");
+        System.out.println("  Roles cargados    : " + totalRoles);
+        System.out.println("  Usuarios cargados : " + totalUsuarios);
+        System.out.println("==============================================");
+        System.out.println("  Usuarios de prueba (contraseña: 123456):");
+        System.out.println("  - admin.sistema@campus360.com   [ADMIN]");
+        System.out.println("  - estudiante@campus360.com      [ESTUDIANTE]");
+        System.out.println("  - profesor.ana@campus360.com    [DOCENTE]");
+        System.out.println("  - bloqueado@campus360.com       [BLOQUEADO]");
+        System.out.println("  - inactivo@campus360.com        [INACTIVO]");
+        System.out.println("==============================================");
     }
 }

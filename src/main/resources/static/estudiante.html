@@ -3,36 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Estudiantil - G1 Identidad</title>
+    <title>Portal del Estudiante - Campus360</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="navbar-logo">G1</div>
+            <span class="navbar-title">Campus<span>360</span></span>
+        </div>
+        <div class="navbar-user">
+            <div class="navbar-user-info">
+                <div class="navbar-user-name" id="user-name">Estudiante</div>
+                <div class="navbar-user-role" id="user-email"></div>
+            </div>
+            <div class="navbar-avatar" id="user-avatar">E</div>
+            <button onclick="handleLogout()" class="btn btn-secondary btn-sm">Cerrar Sesión</button>
+        </div>
+    </nav>
+
     <div class="container">
-        <div class="app-header">
-            <h1>Portal del Estudiante</h1>
-            <button onclick="handleLogout()" class="btn btn-secondary">Cerrar Sesión</button>
-        </div>
 
-        <div class="user-info-bar">
-            <p>Bienvenido, <strong id="user-name">Estudiante</strong></p>
-            <p id="user-email"></p>
-        </div>
-
-        <!-- Información de la Cuenta -->
+        <!-- Bienvenida -->
         <div class="card">
             <div class="card-header">
-                <h2>Mi Cuenta</h2>
+                <h2>👋 Bienvenido</h2>
             </div>
-            <div id="info-cuenta" class="info-card">
-                <!-- Se carga dinámicamente -->
+            <div id="bienvenida" class="info-card">
+                <p class="loading">Cargando...</p>
             </div>
+        </div>
+
+        <!-- Mi Cuenta -->
+        <div class="card">
+            <div class="card-header">
+                <h2>👤 Mi Cuenta</h2>
+            </div>
+            <div id="info-cuenta" class="info-card"></div>
         </div>
 
         <!-- Sesión Actual -->
         <div class="card">
             <div class="card-header">
-                <h2>Sesión Actual</h2>
+                <h2>🔑 Sesión Actual</h2>
             </div>
             <div id="sesion-actual" class="info-card">
                 <p class="loading">Cargando información de la sesión</p>
@@ -42,11 +57,10 @@
         <!-- Mis Sesiones Activas -->
         <div class="card">
             <div class="card-header">
-                <h2>Mis Sesiones Activas</h2>
+                <h2>🖥️ Mis Sesiones Activas</h2>
             </div>
-            <p class="subtitle" style="margin-bottom: 1rem; color: #6b7280;">
-                Estas son todas las sesiones que tienes abiertas en diferentes dispositivos.
-                Si reconoces alguna sospechosa, puedes revocarla.
+            <p style="margin-bottom: 1rem; color: #6b7280; font-size: 0.9rem;">
+                Sesiones abiertas en diferentes dispositivos. Si reconoces alguna sospechosa, puedes revocarla.
             </p>
             <div class="table-container">
                 <table>
@@ -61,30 +75,26 @@
                         </tr>
                     </thead>
                     <tbody id="mis-sesiones-tbody">
-                        <tr>
-                            <td colspan="6" class="empty-state">
-                                <p>No hay sesiones activas</p>
-                            </td>
-                        </tr>
+                        <tr><td colspan="6" class="empty-state"><p>No hay sesiones activas</p></td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Información Adicional -->
+        <!-- Seguridad -->
         <div class="card">
             <div class="card-header">
-                <h2>Información de Seguridad</h2>
+                <h2>🔒 Información de Seguridad</h2>
             </div>
-            <div style="color: #6b7280; font-size: 0.95rem; line-height: 1.6;">
-                <p>• Las sesiones expiran automáticamente después de 30 minutos de inactividad.</p>
+            <div style="color: #6b7280; font-size: 0.9rem; line-height: 1.8;">
+                <p>• Las sesiones expiran automáticamente después de 30 minutos.</p>
                 <p>• Puedes tener múltiples sesiones activas en diferentes dispositivos.</p>
                 <p>• Si revocas una sesión, el usuario será desconectado inmediatamente.</p>
                 <p>• Para mayor seguridad, cierra sesión en dispositivos que no reconozcas.</p>
             </div>
         </div>
-    </div>
 
+    </div>
     <script src="/js/app.js"></script>
 </body>
 </html>

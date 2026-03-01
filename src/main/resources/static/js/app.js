@@ -11,32 +11,46 @@ const API_URL = '';
 
 async function handleLogin(event) {
     event.preventDefault();
-    
+
     const correo = document.getElementById('correo').value;
     const password = document.getElementById('password').value;
-    
+
+    // Limpiar mensaje de error previo
+    mostrarErrorLogin('');
+
+    // Validación básica antes de llamar al backend
+    if (!correo || !password) {
+        mostrarErrorLogin('Por favor completa todos los campos.');
+        return;
+    }
+
+    // Deshabilitar botón mientras carga (evita doble submit)
+    const btn = document.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Iniciando sesión...';
+
     try {
         const response = await fetch(`${API_URL}/api/v1/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ correo, password })
         });
-        
+
         const data = await response.json();
         console.log('Login response:', data);
-        
+
         if (response.ok) {
             // Guardar en localStorage
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.usuario));
             localStorage.setItem('tokenId', data.tokenId);
-            
+
             console.log('Usuario guardado:', data.usuario);
-            
+
             // Redirigir según el rol
             const rol = data.usuario.rol;
             console.log('Redirigiendo a:', rol);
-            
+
             if (rol === 'ADMIN') {
                 window.location.href = '/admin.html';
             } else if (rol === 'ESTUDIANTE') {
@@ -47,12 +61,78 @@ async function handleLogin(event) {
                 window.location.href = '/estudiante.html';
             }
         } else {
-            alert('Error: ' + (data.message || 'Credenciales inválidas'));
+            // ✅ FIX: Obtener el mensaje real del backend
+            const mensaje = data.message || data.error || 'Credenciales inválidas';
+
+            // ✅ FIX: Detectar si es bloqueo para mostrar mensaje especial
+            const esBloqueado = mensaje.toLowerCase().includes('bloqueada') ||
+                                mensaje.toLowerCase().includes('bloqueado');
+
+            if (esBloqueado) {
+                // Extraer minutos del mensaje si vienen (ej: "Espere 15 minutos")
+                const match = mensaje.match(/(\d+)\s*minuto/i);
+                const minutos = match ? match[1] : '15';
+                mostrarErrorLogin(
+                    `🔒 Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intente nuevamente en ${minutos} minutos o contacte al administrador.`,
+                    'bloqueado'
+                );
+            } else {
+                mostrarErrorLogin('❌ ' + mensaje);
+            }
         }
     } catch (error) {
         console.error('Error en login:', error);
-        alert('Error de conexión');
+        mostrarErrorLogin('Sin conexión con el servidor. Verifique su red e intente nuevamente.');
+    } finally {
+        // Re-habilitar botón siempre
+        btn.disabled = false;
+        btn.textContent = 'Iniciar Sesión';
     }
+}
+
+/**
+ * Muestra un mensaje de error inline debajo del formulario.
+ * tipo: '' (normal) | 'bloqueado' (estilo especial naranja/rojo)
+ */
+function mostrarErrorLogin(mensaje, tipo = '') {
+    let errorDiv = document.getElementById('login-error');
+
+    // Crear el div si no existe aún
+    if (!errorDiv) {
+        errorDiv = document.createElement('div');
+        errorDiv.id = 'login-error';
+        const form = document.querySelector('form');
+        form.appendChild(errorDiv);
+    }
+
+    if (!mensaje) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+        return;
+    }
+
+    // Estilos base
+    errorDiv.style.display = 'block';
+    errorDiv.style.marginTop = '12px';
+    errorDiv.style.padding = '12px 16px';
+    errorDiv.style.borderRadius = '8px';
+    errorDiv.style.fontSize = '14px';
+    errorDiv.style.fontWeight = '500';
+    errorDiv.style.lineHeight = '1.5';
+
+    if (tipo === 'bloqueado') {
+        // Estilo especial para bloqueo — naranja oscuro
+        errorDiv.style.backgroundColor = '#fff3cd';
+        errorDiv.style.color = '#856404';
+        errorDiv.style.border = '1px solid #ffc107';
+    } else {
+        // Estilo para error genérico — rojo suave
+        errorDiv.style.backgroundColor = '#f8d7da';
+        errorDiv.style.color = '#721c24';
+        errorDiv.style.border = '1px solid #f5c6cb';
+    }
+
+    errorDiv.textContent = mensaje;
 }
 
 async function handleLogout() {
@@ -128,13 +208,27 @@ async function cargarRoles() {
 // ============================================
 
 async function cargarDashboardAdmin() {
+    // Actualizar navbar
+    const navName = document.getElementById('user-name');
+    const navEmail = document.getElementById('user-email');
+    const navAvatar = document.getElementById('user-avatar');
+    if (navName) navName.textContent = currentUser.nombreCompleto || currentUser.nombre;
+    if (navEmail) navEmail.textContent = currentUser.correo;
+    if (navAvatar) navAvatar.textContent = currentUser.nombre.charAt(0).toUpperCase();
     // Verificar que estamos en admin.html
     const userName = document.getElementById('user-name');
     const userEmail = document.getElementById('user-email');
     
     if (userName && userEmail) {
-        userName.textContent = currentUser.nombre;
+        userName.textContent = currentUser.nombreCompleto || currentUser.nombre;
         userEmail.textContent = currentUser.correo;
+    }
+
+    // Mensaje de bienvenida en el dashboard
+    const bienvenida = document.getElementById('bienvenida');
+    if (bienvenida) {
+        const nombreMostrar = currentUser.nombreCompleto || currentUser.nombre;
+        bienvenida.innerHTML = `<p>¡Hola, <strong>${nombreMostrar}</strong>! Bienvenido al panel de administración de Campus360.</p>`;
     }
     
     // Cargar cada sección solo si existe el elemento
@@ -236,11 +330,21 @@ async function buscarSesionesUsuario() {
 // ============================================
 
 async function cargarDashboardEstudiante() {
+    // Actualizar navbar
+    const navAvatar = document.getElementById('user-avatar');
+    if (navAvatar) navAvatar.textContent = currentUser.nombre.charAt(0).toUpperCase();
     const userName = document.getElementById('user-name');
     const userEmail = document.getElementById('user-email');
     
-    if (userName) userName.textContent = currentUser.nombre;
+    if (userName) userName.textContent = currentUser.nombreCompleto || currentUser.nombre;
     if (userEmail) userEmail.textContent = currentUser.correo;
+
+    // Mensaje de bienvenida
+    const bienvenida = document.getElementById('bienvenida');
+    if (bienvenida) {
+        const nombreMostrar = currentUser.nombreCompleto || currentUser.nombre;
+        bienvenida.innerHTML = `<p>¡Hola, <strong>${nombreMostrar}</strong>! Bienvenido a tu portal estudiantil de Campus360.</p>`;
+    }
     
     await Promise.all([
         cargarInfoCuenta(),
@@ -335,11 +439,21 @@ async function cargarMisSesionesEstudiante() {
 // ============================================
 
 async function cargarDashboardDocente() {
+    // Actualizar navbar
+    const navAvatar = document.getElementById('user-avatar');
+    if (navAvatar) navAvatar.textContent = currentUser.nombre.charAt(0).toUpperCase();
     const userName = document.getElementById('user-name');
     const userEmail = document.getElementById('user-email');
     
-    if (userName) userName.textContent = currentUser.nombre;
+    if (userName) userName.textContent = currentUser.nombreCompleto || currentUser.nombre;
     if (userEmail) userEmail.textContent = currentUser.correo;
+
+    // Mensaje de bienvenida
+    const bienvenida = document.getElementById('bienvenida');
+    if (bienvenida) {
+        const nombreMostrar = currentUser.nombreCompleto || currentUser.nombre;
+        bienvenida.innerHTML = `<p>¡Hola, <strong>${nombreMostrar}</strong>! Bienvenido a tu portal docente de Campus360.</p>`;
+    }
     
     await Promise.all([
         cargarInfoCuentaDocente(),
