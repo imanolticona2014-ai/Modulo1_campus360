@@ -176,4 +176,4 @@ Este módulo se conecta con:
 
 ## 👨‍💻 Equipo — Grupo 1
 
-Módulo desarrollado para el curso de **Arquitectura de Software — UNMSM**
+Módulo desarrollado para el curso de **Diseño de Sistemas — UNMSM**
