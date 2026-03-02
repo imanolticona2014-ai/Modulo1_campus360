@@ -185,10 +185,7 @@ private final UsuarioRepository usuarioRepository;
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
-        usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
-        usuario.setIntentosFallidos(0);
-        usuario.setBloqueoHasta(null);
-        usuarioRepository.save(usuario);
+        resetearCuenta(usuario); 
 
         auditoriaClient.registrar("USUARIO_REACTIVADO", usuario.getCorreo(), "N/A",
                 "Usuario reactivado por admin");
@@ -206,11 +203,7 @@ private final UsuarioRepository usuarioRepository;
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
-        usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
-        usuario.setIntentosFallidos(0);
-        usuario.setBloqueoHasta(null);
-        usuarioRepository.save(usuario);
-
+        resetearCuenta(usuario); 
         auditoriaClient.registrar("USUARIO_DESBLOQUEADO", usuario.getCorreo(), "N/A",
                 "Cuenta desbloqueada manualmente por admin");
 
@@ -265,6 +258,12 @@ private final UsuarioRepository usuarioRepository;
     }
 
     // ============ MÉTODOS PRIVADOS ============
+    private void resetearCuenta(Usuario usuario) {
+        usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
+        usuario.setIntentosFallidos(0);
+        usuario.setBloqueoHasta(null);
+        usuarioRepository.save(usuario);
+    }
     private Map<String, Object> usuarioToMap(Usuario u) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", u.getId());
