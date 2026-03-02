@@ -48,83 +48,14 @@ public class AuthService {
     @Transactional
     public Map<String, Object> login(String correo, String password, String dispositivo, String ip) {
 
-        // 1. Buscar usuario
-        Usuario usuario = usuarioRepository.findByCorreo(correo).orElse(null);
+        Usuario usuario = obtenerUsuario(correo, ip);
 
-        if (usuario == null) {
-            auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario no existe");
-            throw new AccesoNoAutorizadoException("Credenciales inválidas");
-        }
+        validarEstadoUsuario(usuario, correo, ip);
+        validarPassword(usuario, password, correo, ip);
 
-        // 2. Verificar si está bloqueado
-        if (usuario.getEstado() == Usuario.EstadoUsuario.BLOQUEADO) {
-            if (usuario.getBloqueoHasta() != null && LocalDateTime.now().isBefore(usuario.getBloqueoHasta())) {
-                long minutosRestantes = java.time.Duration.between(
-                    LocalDateTime.now(), usuario.getBloqueoHasta()).toMinutes() + 1;
-                throw new AccesoNoAutorizadoException("Cuenta bloqueada temporalmente. Intente en " + minutosRestantes + " minutos.");
-            } else {
-                // Desbloquear automáticamente si ya pasó el tiempo
-                usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
-                usuario.setIntentosFallidos(0);
-                usuario.setBloqueoHasta(null);
-                usuarioRepository.save(usuario);
-            }
-        }
-
-        // 3. Verificar si está inactivo
-        if (usuario.getEstado() == Usuario.EstadoUsuario.INACTIVO) {
-            auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario inactivo");
-            throw new AccesoNoAutorizadoException("Credenciales inválidas");
-        }
-
-        // 4. Verificar contraseña con BCrypt
-        if (!passwordEncoder.matches(password, usuario.getPasswordHash())) {
-            int intentos = usuario.getIntentosFallidos() + 1;
-
-            if (intentos >= MAX_INTENTOS) {
-                authPersistenceService.bloquearCuenta(usuario, ip);
-                throw new AccesoNoAutorizadoException("Cuenta bloqueada por " + MAX_INTENTOS +
-                        " intentos fallidos. Espere " + MINUTOS_BLOQUEO + " minutos.");
-            }
-
-            authPersistenceService.guardarIntentoFallido(usuario, intentos, correo, ip);
-            throw new AccesoNoAutorizadoException("Credenciales inválidas");
-        }
-
-        // 5. Login exitoso — resetear intentos
-        usuario.setIntentosFallidos(0);
-        usuarioRepository.save(usuario);
-
-        // 6. Generar tokens JWT
-        String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "ESTUDIANTE";
-        String tokenStr = jwtService.generarToken(usuario.getId(), usuario.getCorreo(), rol);
-        String refreshTokenStr = jwtService.generarRefreshToken(usuario.getId());
-
-        // 7. Guardar token en BD
-        Token token = new Token(tokenStr, refreshTokenStr, usuario, dispositivo, ip);
-        tokenRepository.save(token);
-
-        // 8. Registrar en auditoría
-        auditoriaClient.registrar("LOGIN_EXITOSO", correo, ip, "Login correcto - Rol: " + rol);
-
-        // 9. Preparar respuesta
-        Map<String, Object> response = new HashMap<>();
-        response.put("token", tokenStr);
-        response.put("refreshToken", refreshTokenStr);
-        response.put("tokenId", token.getId());
-
-        Map<String, String> usuarioMap = new HashMap<>();
-        usuarioMap.put("id", usuario.getId());
-        usuarioMap.put("correo", usuario.getCorreo());
-        usuarioMap.put("nombre", usuario.getNombres() + " " +
-                (usuario.getApellidos() != null ? usuario.getApellidos() : ""));
-        usuarioMap.put("rol", rol);
-
-        response.put("usuario", usuarioMap);
-        response.put("mensaje", "Login exitoso");
-
-        return response;
+        return procesarLoginExitoso(usuario, dispositivo, ip);
     }
+
 
     // ============ VALIDAR TOKEN (RF-09) ============
     public Map<String, Object> validateToken(String tokenStr) {
@@ -318,6 +249,110 @@ public class AuthService {
     }
 
     // ============ MÉTODOS PRIVADOS ============
+    private Usuario obtenerUsuario(String correo, String ip) {
+    Usuario usuario = usuarioRepository.findByCorreo(correo).orElse(null);
+
+    if (usuario == null) {
+        auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario no existe");
+        throw new AccesoNoAutorizadoException("Credenciales inválidas");
+    }
+
+    return usuario;
+}
+
+    private void validarEstadoUsuario(Usuario usuario, String correo, String ip) {
+
+        if (usuario.getEstado() == Usuario.EstadoUsuario.BLOQUEADO) {
+            if (usuario.getBloqueoHasta() != null && LocalDateTime.now().isBefore(usuario.getBloqueoHasta())) {
+                long minutosRestantes = java.time.Duration
+                        .between(LocalDateTime.now(), usuario.getBloqueoHasta())
+                        .toMinutes() + 1;
+
+                throw new AccesoNoAutorizadoException(
+                        "Cuenta bloqueada temporalmente. Intente en " + minutosRestantes + " minutos.");
+            } else {
+                usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
+                usuario.setIntentosFallidos(0);
+                usuario.setBloqueoHasta(null);
+                usuarioRepository.save(usuario);
+            }
+        }
+
+        if (usuario.getEstado() == Usuario.EstadoUsuario.INACTIVO) {
+            auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario inactivo");
+            throw new AccesoNoAutorizadoException("Credenciales inválidas");
+        }
+    }
+
+    private void validarPassword(Usuario usuario, String password, String correo, String ip) {
+
+        if (!passwordEncoder.matches(password, usuario.getPasswordHash())) {
+
+            int intentos = usuario.getIntentosFallidos() + 1;
+
+            if (intentos >= MAX_INTENTOS) {
+                authPersistenceService.bloquearCuenta(usuario, ip);
+                throw new AccesoNoAutorizadoException(
+                        "Cuenta bloqueada por " + MAX_INTENTOS +
+                        " intentos fallidos. Espere " + MINUTOS_BLOQUEO + " minutos.");
+            }
+
+            authPersistenceService.guardarIntentoFallido(usuario, intentos, correo, ip);
+            throw new AccesoNoAutorizadoException("Credenciales inválidas");
+        }
+    }
+
+    private Map<String, Object> procesarLoginExitoso(
+            Usuario usuario, String dispositivo, String ip) {
+
+        usuario.setIntentosFallidos(0);
+        usuarioRepository.save(usuario);
+
+        String rol = usuario.getRol() != null
+                ? usuario.getRol().getNombre()
+                : "ESTUDIANTE";
+
+        String tokenStr = jwtService.generarToken(
+                usuario.getId(), usuario.getCorreo(), rol);
+
+        String refreshTokenStr =
+                jwtService.generarRefreshToken(usuario.getId());
+
+        Token token = new Token(tokenStr, refreshTokenStr, usuario, dispositivo, ip);
+        tokenRepository.save(token);
+
+        auditoriaClient.registrar(
+                "LOGIN_EXITOSO", usuario.getCorreo(), ip,
+                "Login correcto - Rol: " + rol);
+
+        return construirRespuesta(usuario, rol, tokenStr, refreshTokenStr, token.getId());
+    }
+
+    private Map<String, Object> construirRespuesta(
+            Usuario usuario,
+            String rol,
+            String tokenStr,
+            String refreshTokenStr,
+            Long tokenId) {
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", tokenStr);
+        response.put("refreshToken", refreshTokenStr);
+        response.put("tokenId", tokenId);
+
+        Map<String, String> usuarioMap = new HashMap<>();
+        usuarioMap.put("id", usuario.getId());
+        usuarioMap.put("correo", usuario.getCorreo());
+        usuarioMap.put("nombre", usuario.getNombres() + " " +
+                (usuario.getApellidos() != null ? usuario.getApellidos() : ""));
+        usuarioMap.put("rol", rol);
+
+        response.put("usuario", usuarioMap);
+        response.put("mensaje", "Login exitoso");
+
+        return response;
+    }
+
     private Map<String, Object> tokenToMap(Token token) {
         LocalDateTime ahora = LocalDateTime.now();
         Map<String, Object> sesion = new HashMap<>();
