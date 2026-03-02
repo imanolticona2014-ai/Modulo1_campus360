@@ -1,5 +1,7 @@
 package com.campus360.identidad.exception;
 
-public class AccesoNoAutorizadoException {
-
+public class AccesoNoAutorizadoException extends RuntimeException {
+    public AccesoNoAutorizadoException(String mensaje) {
+        super(mensaje);
+    }
 }
