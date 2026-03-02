@@ -1,6 +1,7 @@
 package com.campus360.identidad.controller;
 
-import com.campus360.identidad.service.AuthService;
+import com.campus360.identidad.service.SessionService;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -10,28 +11,28 @@ import java.util.Map;
 @RequestMapping("/api/v1/sesiones")
 public class SesionController {
     
-    private final AuthService authService;
+    private final SessionService sessionService;
     
-    public SesionController(AuthService authService) {
-        this.authService = authService;
+    public SesionController(SessionService sessionService) {
+        this.sessionService = sessionService;
     }
     
     @GetMapping("/usuario/{usuarioId}")
     public List<Map<String, Object>> listarSesionesActivas(@PathVariable String usuarioId) {
-        return authService.obtenerSesionesActivas(usuarioId);
+        return sessionService.obtenerSesionesActivas(usuarioId);
     }
     @GetMapping("/todas")
     public List<Map<String, Object>> listarTodasLasSesiones() {
-        return authService.obtenerTodasLasSesiones();
+        return sessionService.obtenerTodasLasSesiones();
     }
     @GetMapping("/buscar")
     public List<Map<String, Object>> buscarSesionesPorUsuario(@RequestParam String termino) {
-        return authService.buscarSesionesPorTermino(termino);
+        return sessionService.buscarSesionesPorTermino(termino);
     }
     
     @DeleteMapping("/{tokenId}")
     public Map<String, String> revocarSesion(@PathVariable Long tokenId) {
-        authService.revocarSesion(tokenId);
+        sessionService.revocarSesion(tokenId);
         return Map.of(
             "mensaje", "Sesión revocada exitosamente",
             "tokenId", tokenId.toString()
@@ -40,7 +41,7 @@ public class SesionController {
     
     @DeleteMapping("/usuario/{usuarioId}/todas")
     public Map<String, String> revocarTodasLasSesiones(@PathVariable String usuarioId) {
-        authService.revocarTodasLasSesiones(usuarioId);
+        sessionService.revocarTodasLasSesiones(usuarioId);
         return Map.of(
             "mensaje", "Todas las sesiones fueron revocadas",
             "usuarioId", usuarioId
@@ -49,6 +50,6 @@ public class SesionController {
     
     @GetMapping("/estadisticas")
     public Map<String, Object> obtenerEstadisticas() {
-        return authService.obtenerEstadisticasSesiones();
+        return sessionService.obtenerEstadisticasSesiones();
     }
 }

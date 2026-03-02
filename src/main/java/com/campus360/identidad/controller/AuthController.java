@@ -3,6 +3,8 @@ package com.campus360.identidad.controller;
 import com.campus360.identidad.domain.Usuario;
 import com.campus360.identidad.repository.UsuarioRepository;
 import com.campus360.identidad.service.AuthService;
+import com.campus360.identidad.service.PasswordService;
+import com.campus360.identidad.service.TokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,13 +18,18 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordService passwordService;
+    private final TokenService tokenService;
     private final PasswordEncoder passwordEncoder;
     private final UsuarioRepository usuarioRepository;
 
     public AuthController(AuthService authService, 
-                          PasswordEncoder passwordEncoder,
+                          PasswordService passwordService,
+                          TokenService tokenService, PasswordEncoder passwordEncoder,
                           UsuarioRepository usuarioRepository) {
         this.authService = authService;
+        this.passwordService = passwordService;
+        this.tokenService = tokenService;
         this.passwordEncoder = passwordEncoder;
         this.usuarioRepository = usuarioRepository;
     }
@@ -58,7 +65,7 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> validateToken(
             @RequestHeader("Authorization") String token) {
         String jwt = token.replace("Bearer ", "");
-        return ResponseEntity.ok(authService.validateToken(jwt));
+        return ResponseEntity.ok(tokenService.validateToken(jwt));
     }
 
     // ============ LOGOUT ============
@@ -82,7 +89,7 @@ public class AuthController {
             String jwt = token.replace("Bearer ", "");
             String passwordActual = datos.get("passwordActual");
             String passwordNueva = datos.get("passwordNueva");
-            return ResponseEntity.ok(authService.cambiarPassword(jwt, passwordActual, passwordNueva));
+            return ResponseEntity.ok(passwordService.cambiarPassword(jwt, passwordActual, passwordNueva));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -93,7 +100,7 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> recuperarPassword(
             @RequestBody Map<String, String> datos) {
         String correo = datos.get("correo");
-        return ResponseEntity.ok(authService.recuperarPassword(correo));
+        return ResponseEntity.ok(passwordService.recuperarPassword(correo));
     }
 
     // ============ HASH TEST (TEMPORAL - ELIMINAR EN PRODUCCION) ============

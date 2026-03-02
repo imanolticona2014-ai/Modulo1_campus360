@@ -4,8 +4,6 @@ import com.campus360.identidad.config.AuthConstants;
 import com.campus360.identidad.domain.Token;
 import com.campus360.identidad.domain.Usuario;
 import com.campus360.identidad.exception.AccesoNoAutorizadoException;
-import com.campus360.identidad.exception.RecursoNoEncontradoException;
-import com.campus360.identidad.exception.ReglaNegocioException;
 import com.campus360.identidad.repository.TokenRepository;
 import com.campus360.identidad.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,9 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class AuthService {
@@ -52,34 +48,6 @@ public class AuthService {
         validarPassword(usuario, password, correo, ip);
 
         return procesarLoginExitoso(usuario, dispositivo, ip);
-    }
-
-
-    // ============ VALIDAR TOKEN (RF-09) ============
-    public Map<String, Object> validateToken(String tokenStr) {
-        Map<String, Object> response = new HashMap<>();
-
-        if (!jwtService.esValido(tokenStr)) {
-            response.put("valido", false);
-            response.put("mensaje", "Token inválido o expirado");
-            return response;
-        }
-
-        Token token = tokenRepository.findByToken(tokenStr).orElse(null);
-        if (token == null || token.getRevocado()) {
-            response.put("valido", false);
-            response.put("mensaje", "Token revocado");
-            return response;
-        }
-
-        response.put("valido", true);
-        response.put("usuarioId", jwtService.extraerUsuarioId(tokenStr));
-        response.put("correo", jwtService.extraerCorreo(tokenStr));
-        response.put("rol", jwtService.extraerRol(tokenStr));
-        response.put("expiracion", jwtService.extraerExpiracion(tokenStr));
-        response.put("mensaje", "Token válido");
-
-        return response;
     }
 
     // ============ REFRESH TOKEN (RF-10) — CORREGIDO ============
@@ -132,118 +100,6 @@ public class AuthService {
         }
 
         return Map.of("mensaje", "Sesión cerrada exitosamente");
-    }
-
-    // ============ CAMBIAR CONTRASEÑA (RF-04) ============
-    @Transactional
-    public Map<String, String> cambiarPassword(String tokenStr, String passwordActual, String passwordNueva) {
-        if (!jwtService.esValido(tokenStr)) {
-            throw new AccesoNoAutorizadoException("Token inválido");
-        }
-
-        String correo = jwtService.extraerCorreo(tokenStr);
-        Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
-
-        if (!passwordEncoder.matches(passwordActual, usuario.getPasswordHash())) {
-            throw new ReglaNegocioException("La contraseña actual es incorrecta");
-        }
-
-        validarPoliticaPassword(passwordNueva);
-
-        usuario.setPasswordHash(passwordEncoder.encode(passwordNueva));
-        usuarioRepository.save(usuario);
-
-        tokenRepository.revocarTokensByUsuarioId(usuario.getId());
-
-        auditoriaClient.registrar("CAMBIO_PASSWORD", correo, "N/A", "Contraseña actualizada");
-
-        return Map.of("mensaje", "Contraseña actualizada exitosamente. Por favor inicie sesión nuevamente.");
-    }
-
-    // ============ RECUPERAR CONTRASEÑA (RF-03) ============
-    public Map<String, String> recuperarPassword(String correo) {
-        Usuario usuario = usuarioRepository.findByCorreo(correo).orElse(null);
-
-        if (usuario == null || usuario.getEstado() != Usuario.EstadoUsuario.ACTIVO) {
-            auditoriaClient.registrar("RECUPERACION_PASSWORD", correo, "N/A", "Usuario no disponible");
-            return Map.of("mensaje", "Si el correo existe, recibirás instrucciones en breve.");
-        }
-
-        String tokenRecuperacion = jwtService.generarToken(usuario.getId(), correo, "RECUPERACION");
-
-        auditoriaClient.registrar("RECUPERACION_PASSWORD", correo, "N/A", "Token de recuperación generado");
-
-        System.out.println("📧 [MOCK G7] Enviando correo a: " + correo);
-        System.out.println("📧 [MOCK G7] Token recuperación: " + tokenRecuperacion);
-
-        return Map.of("mensaje", "Si el correo existe, recibirás instrucciones en breve.");
-    }
-
-    // ============ GESTIÓN DE SESIONES (CU-07) ============
-    public List<Map<String, Object>> obtenerSesionesActivas(String usuarioId) {
-        LocalDateTime ahora = LocalDateTime.now();
-        List<Token> tokens = tokenRepository.findTokensActivosByUsuarioId(usuarioId, ahora);
-        return tokens.stream().map(this::tokenToMap).collect(Collectors.toList());
-    }
-
-    public List<Map<String, Object>> obtenerTodasLasSesiones() {
-        LocalDateTime ahora = LocalDateTime.now();
-        return tokenRepository.findAll().stream()
-                .filter(t -> !t.getRevocado() && t.getFechaExpiracion().isAfter(ahora))
-                .map(this::tokenToMap)
-                .collect(Collectors.toList());
-    }
-
-    public List<Map<String, Object>> buscarSesionesPorTermino(String termino) {
-        LocalDateTime ahora = LocalDateTime.now();
-        return tokenRepository.findAll().stream()
-                .filter(t -> !t.getRevocado() && t.getFechaExpiracion().isAfter(ahora))
-                .filter(t -> {
-                    Usuario u = t.getUsuario();
-                    String b = termino.toLowerCase();
-                    return u.getId().toLowerCase().contains(b) ||
-                            u.getCorreo().toLowerCase().contains(b) ||
-                            (u.getNombres() + " " + u.getApellidos()).toLowerCase().contains(b);
-                })
-                .map(this::tokenToMap)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional
-    public void revocarSesion(Long tokenId) {
-        Token token = tokenRepository.findById(tokenId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Sesión no encontrada"));
-        token.setRevocado(true);
-        tokenRepository.save(token);
-        auditoriaClient.registrar("SESION_REVOCADA", token.getUsuario().getCorreo(),
-                "N/A", "Sesión revocada por admin - Token ID: " + tokenId);
-    }
-
-    @Transactional
-    public void revocarTodasLasSesiones(String usuarioId) {
-        tokenRepository.revocarTokensByUsuarioId(usuarioId);
-        auditoriaClient.registrar("TODAS_SESIONES_REVOCADAS", usuarioId,
-                "N/A", "Todas las sesiones revocadas por admin");
-    }
-
-    public Map<String, Object> obtenerEstadisticasSesiones() {
-        List<Token> todos = tokenRepository.findAll();
-        LocalDateTime ahora = LocalDateTime.now();
-
-        long activas = 0, expiradas = 0, revocadas = 0;
-        for (Token t : todos) {
-            if (t.getRevocado()) revocadas++;
-            else if (t.getFechaExpiracion().isBefore(ahora)) expiradas++;
-            else activas++;
-        }
-
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("total", todos.size());
-        stats.put("activas", activas);
-        stats.put("expiradas", expiradas);
-        stats.put("revocadas", revocadas);
-        return stats;
     }
 
     // ============ MÉTODOS PRIVADOS ============
@@ -349,36 +205,5 @@ public class AuthService {
         response.put("mensaje", "Login exitoso");
 
         return response;
-    }
-
-    private Map<String, Object> tokenToMap(Token token) {
-        LocalDateTime ahora = LocalDateTime.now();
-        Map<String, Object> sesion = new HashMap<>();
-        sesion.put("id", token.getId());
-        sesion.put("tokenPreview", token.getToken().substring(0, Math.min(30, token.getToken().length())) + "...");
-        sesion.put("usuarioId", token.getUsuario().getId());
-        sesion.put("usuarioCorreo", token.getUsuario().getCorreo());
-        sesion.put("usuarioNombre", token.getUsuario().getNombres() + " " + token.getUsuario().getApellidos());
-        sesion.put("fechaCreacion", token.getFechaCreacion());
-        sesion.put("fechaExpiracion", token.getFechaExpiracion());
-        sesion.put("minutosRestantes", java.time.Duration.between(ahora, token.getFechaExpiracion()).toMinutes());
-        sesion.put("dispositivo", token.getDispositivo() != null ? token.getDispositivo() : "Desconocido");
-        sesion.put("ip", token.getIpAddress() != null ? token.getIpAddress() : "No registrada");
-        return sesion;
-    }
-
-    private void validarPoliticaPassword(String password) {
-        if (password == null || password.length() < 8) {
-            throw new ReglaNegocioException("La contraseña debe tener al menos 8 caracteres");
-        }
-        if (!password.matches(".*[A-Z].*")) {
-            throw new ReglaNegocioException("La contraseña debe tener al menos una letra mayúscula");
-        }
-        if (!password.matches(".*[0-9].*")) {
-            throw new ReglaNegocioException("La contraseña debe tener al menos un número");
-        }
-        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) {
-            throw new ReglaNegocioException("La contraseña debe tener al menos un carácter especial");
-        }
     }
 }
