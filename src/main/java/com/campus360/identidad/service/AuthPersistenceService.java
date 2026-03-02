@@ -1,5 +1,6 @@
 package com.campus360.identidad.service;
 
+import com.campus360.identidad.config.AuthConstants;
 import com.campus360.identidad.domain.Usuario;
 import com.campus360.identidad.repository.UsuarioRepository;
 import jakarta.persistence.EntityManager;
@@ -26,9 +27,9 @@ public class AuthPersistenceService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void bloquearCuenta(Usuario usuario, String ip) {
-        usuario.setIntentosFallidos(3);
+        usuario.setIntentosFallidos(AuthConstants.MAX_INTENTOS);
         usuario.setEstado(Usuario.EstadoUsuario.BLOQUEADO);
-        usuario.setBloqueoHasta(LocalDateTime.now().plusMinutes(15));
+        usuario.setBloqueoHasta(LocalDateTime.now().plusMinutes(AuthConstants.MINUTOS_BLOQUEO));
         
         usuarioRepository.save(usuario);
         entityManager.flush();

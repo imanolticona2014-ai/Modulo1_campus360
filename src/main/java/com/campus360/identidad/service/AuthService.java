@@ -1,5 +1,6 @@
 package com.campus360.identidad.service;
 
+import com.campus360.identidad.config.AuthConstants;
 import com.campus360.identidad.domain.Token;
 import com.campus360.identidad.domain.Usuario;
 import com.campus360.identidad.exception.AccesoNoAutorizadoException;
@@ -26,9 +27,6 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaClient auditoriaClient;
     private final AuthPersistenceService authPersistenceService;
-
-    private static final int MAX_INTENTOS = 3;
-    private static final int MINUTOS_BLOQUEO = 15;
 
     public AuthService(UsuarioRepository usuarioRepository,
                        TokenRepository tokenRepository,
@@ -290,11 +288,11 @@ public class AuthService {
 
             int intentos = usuario.getIntentosFallidos() + 1;
 
-            if (intentos >= MAX_INTENTOS) {
+            if (intentos >= AuthConstants.MAX_INTENTOS) {
                 authPersistenceService.bloquearCuenta(usuario, ip);
                 throw new AccesoNoAutorizadoException(
-                        "Cuenta bloqueada por " + MAX_INTENTOS +
-                        " intentos fallidos. Espere " + MINUTOS_BLOQUEO + " minutos.");
+                    "Cuenta bloqueada por " + AuthConstants.MAX_INTENTOS +
+                    " intentos fallidos. Espere " + AuthConstants.MINUTOS_BLOQUEO + " minutos.");
             }
 
             authPersistenceService.guardarIntentoFallido(usuario, intentos, correo, ip);
