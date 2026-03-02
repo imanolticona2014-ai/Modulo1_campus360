@@ -98,4 +98,91 @@ public class Usuario {
     public enum EstadoUsuario {
         ACTIVO, INACTIVO, BLOQUEADO
     }
+
+    // ==========================================
+    // INICIO DEL PATRÓN BUILDER
+    // ==========================================
+
+    // 1. Constructor privado que usa el Builder
+    private Usuario(UsuarioBuilder builder) {
+        this.id = builder.id;
+        this.correo = builder.correo;
+        this.passwordHash = builder.passwordHash;
+        this.nombres = builder.nombres;
+        this.apellidos = builder.apellidos;
+        this.rol = builder.rol;
+        this.estado = builder.estado != null ? builder.estado : EstadoUsuario.ACTIVO;
+        this.intentosFallidos = builder.intentosFallidos != null ? builder.intentosFallidos : 0;
+        this.bloqueoHasta = builder.bloqueoHasta;
+    }
+
+    // 2. Método estático de acceso
+    public static UsuarioBuilder builder() {
+        return new UsuarioBuilder();
+    }
+
+    // 3. Clase estática Builder
+    public static class UsuarioBuilder {
+        private String id;
+        private String correo;
+        private String passwordHash;
+        private String nombres;
+        private String apellidos;
+        private Rol rol;
+        private EstadoUsuario estado = EstadoUsuario.ACTIVO;
+        private Integer intentosFallidos = 0;
+        private LocalDateTime bloqueoHasta;
+
+        public UsuarioBuilder id(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public UsuarioBuilder correo(String correo) {
+            this.correo = correo;
+            return this;
+        }
+
+        public UsuarioBuilder passwordHash(String passwordHash) {
+            this.passwordHash = passwordHash;
+            return this;
+        }
+
+        public UsuarioBuilder nombres(String nombres) {
+            this.nombres = nombres;
+            return this;
+        }
+
+        public UsuarioBuilder apellidos(String apellidos) {
+            this.apellidos = apellidos;
+            return this;
+        }
+
+        public UsuarioBuilder rol(Rol rol) {
+            this.rol = rol;
+            return this;
+        }
+
+        public UsuarioBuilder estado(EstadoUsuario estado) {
+            this.estado = estado;
+            return this;
+        }
+
+        public UsuarioBuilder intentosFallidos(Integer intentosFallidos) {
+            this.intentosFallidos = intentosFallidos;
+            return this;
+        }
+
+        public UsuarioBuilder bloqueoHasta(LocalDateTime bloqueoHasta) {
+            this.bloqueoHasta = bloqueoHasta;
+            return this;
+        }
+
+        public Usuario build() {
+            return new Usuario(this);
+        }
+    }
+    // ==========================================
+    // FIN DEL PATRÓN BUILDER
+    // ==========================================
 }

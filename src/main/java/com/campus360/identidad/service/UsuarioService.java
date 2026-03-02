@@ -8,28 +8,33 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.campus360.identidad.domain.UsuarioFactory;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class UsuarioService {
 
-    private final UsuarioRepository usuarioRepository;
+private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaClient auditoriaClient;
     private final NotificacionClient notificacionClient;
+    private final UsuarioFactory usuarioFactory; 
 
     public UsuarioService(UsuarioRepository usuarioRepository,
                           RolRepository rolRepository,
                           PasswordEncoder passwordEncoder,
                           AuditoriaClient auditoriaClient,
-                          NotificacionClient notificacionClient) {
+                          NotificacionClient notificacionClient,
+                          UsuarioFactory usuarioFactory) { 
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaClient = auditoriaClient;
         this.notificacionClient = notificacionClient;
+        this.usuarioFactory = usuarioFactory;
     }
 
     // ============ CREAR USUARIO (RF-05) ============
@@ -69,13 +74,22 @@ public class UsuarioService {
         String passwordTemporal = generarPasswordTemporal();
 
         // Crear usuario
-        Usuario usuario = new Usuario();
-        usuario.setCorreo(correo);
-        usuario.setNombres(nombre);
-        usuario.setApellidos(apellidos != null ? apellidos : "");
-        usuario.setPasswordHash(passwordEncoder.encode(passwordTemporal));
-        usuario.setRol(rol);
-        usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
+        // ==========================================
+        // USO DEL PATRÓN FACTORY Y BUILDER
+        // ==========================================
+        String hashPassword = passwordEncoder.encode(passwordTemporal);
+        String apellidoSeguro = apellidos != null ? apellidos : "";
+        Usuario usuario;
+
+        if (rol != null && "DOCENTE".equalsIgnoreCase(rol.getNombre())) {
+            usuario = usuarioFactory.crearDocente(correo, hashPassword, nombre, apellidoSeguro, rol);
+        } else if (rol != null && "ADMIN".equalsIgnoreCase(rol.getNombre())) {
+            usuario = usuarioFactory.crearAdmin(correo, hashPassword, nombre, apellidoSeguro, rol);
+        } else {
+            // Por defecto se crea como ESTUDIANTE
+            usuario = usuarioFactory.crearEstudiante(correo, hashPassword, nombre, apellidoSeguro, rol);
+        }
+        // ==========================================
 
         usuarioRepository.save(usuario);
 
