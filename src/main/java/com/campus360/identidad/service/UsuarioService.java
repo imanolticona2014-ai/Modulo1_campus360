@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.campus360.identidad.domain.UsuarioFactory;
+import com.campus360.identidad.exception.RecursoNoEncontradoException;
+import com.campus360.identidad.exception.ReglaNegocioException;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -50,12 +52,12 @@ private final UsuarioRepository usuarioRepository;
         String rolNombre = datos.get("rol");
 
         // Validar campos obligatorios
-        if (correo == null || correo.isBlank()) throw new RuntimeException("El correo es obligatorio");
-        if (nombre == null || nombre.isBlank()) throw new RuntimeException("El nombre es obligatorio");
+        if (correo == null || correo.isBlank()) throw new ReglaNegocioException("El correo es obligatorio");
+        if (nombre == null || nombre.isBlank()) throw new ReglaNegocioException("El nombre es obligatorio");
 
         // Validar unicidad de correo
         if (usuarioRepository.existsByCorreo(correo)) {
-            throw new RuntimeException("Ya existe un usuario con el correo: " + correo);
+            throw new ReglaNegocioException("Ya existe un usuario con el correo: " + correo);
         }
 
         // ✅ FIX: Buscar rol por ID primero (más robusto), fallback por nombre
@@ -63,11 +65,11 @@ private final UsuarioRepository usuarioRepository;
         if (rolId != null && !rolId.isBlank()) {
             // Buscar por ID — estándar REST
             rol = rolRepository.findById(rolId)
-                    .orElseThrow(() -> new RuntimeException("Rol no encontrado con ID: " + rolId));
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Rol no encontrado con ID: " + rolId));
         } else if (rolNombre != null && !rolNombre.isBlank()) {
             // Fallback: buscar por nombre (retrocompatibilidad)
             rol = rolRepository.findByNombre(rolNombre.toUpperCase())
-                    .orElseThrow(() -> new RuntimeException("Rol no encontrado: " + rolNombre));
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Rol no encontrado: " + rolNombre));
         }
 
         // Generar contraseña temporal
@@ -124,7 +126,7 @@ private final UsuarioRepository usuarioRepository;
     // ============ OBTENER USUARIO POR ID (RF-05) ============
     public Map<String, Object> obtenerUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
         return usuarioToMap(usuario);
     }
 
@@ -132,7 +134,7 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, Object> actualizarUsuario(String id, Map<String, String> datos) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
         if (datos.containsKey("nombre") && !datos.get("nombre").isBlank()) {
             usuario.setNombres(datos.get("nombre"));
@@ -143,7 +145,7 @@ private final UsuarioRepository usuarioRepository;
         if (datos.containsKey("correo") && !datos.get("correo").isBlank()) {
             String nuevoCorreo = datos.get("correo");
             if (!nuevoCorreo.equals(usuario.getCorreo()) && usuarioRepository.existsByCorreo(nuevoCorreo)) {
-                throw new RuntimeException("Ya existe un usuario con el correo: " + nuevoCorreo);
+                throw new ReglaNegocioException("Ya existe un usuario con el correo: " + nuevoCorreo);
             }
             usuario.setCorreo(nuevoCorreo);
         }
@@ -162,7 +164,7 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, String> desactivarUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
         usuario.setEstado(Usuario.EstadoUsuario.INACTIVO);
         usuarioRepository.save(usuario);
@@ -181,7 +183,7 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, String> reactivarUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
         usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
         usuario.setIntentosFallidos(0);
@@ -202,7 +204,7 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, String> desbloquearUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
         usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
         usuario.setIntentosFallidos(0);
@@ -237,14 +239,14 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, String> asignarRol(String usuarioId, String rolId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
 
         Rol rol = rolRepository.findById(rolId)
-                .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Rol no encontrado"));
 
         // Verificar que no sea el mismo rol
         if (usuario.getRol() != null && usuario.getRol().getId().equals(rolId)) {
-            throw new RuntimeException("El usuario ya tiene asignado el rol: " + rol.getNombre());
+            throw new ReglaNegocioException("El usuario ya tiene asignado el rol: " + rol.getNombre());
         }
 
         String rolAnterior = usuario.getRol() != null ? usuario.getRol().getNombre() : "Sin rol";

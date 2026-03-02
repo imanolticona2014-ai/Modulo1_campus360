@@ -2,6 +2,9 @@ package com.campus360.identidad.service;
 
 import com.campus360.identidad.domain.Token;
 import com.campus360.identidad.domain.Usuario;
+import com.campus360.identidad.exception.AccesoNoAutorizadoException;
+import com.campus360.identidad.exception.RecursoNoEncontradoException;
+import com.campus360.identidad.exception.ReglaNegocioException;
 import com.campus360.identidad.repository.TokenRepository;
 import com.campus360.identidad.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -50,7 +53,7 @@ public class AuthService {
 
         if (usuario == null) {
             auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario no existe");
-            throw new RuntimeException("Credenciales inválidas");
+            throw new AccesoNoAutorizadoException("Credenciales inválidas");
         }
 
         // 2. Verificar si está bloqueado
@@ -58,7 +61,7 @@ public class AuthService {
             if (usuario.getBloqueoHasta() != null && LocalDateTime.now().isBefore(usuario.getBloqueoHasta())) {
                 long minutosRestantes = java.time.Duration.between(
                     LocalDateTime.now(), usuario.getBloqueoHasta()).toMinutes() + 1;
-                throw new RuntimeException("Cuenta bloqueada temporalmente. Intente en " + minutosRestantes + " minutos.");
+                throw new AccesoNoAutorizadoException("Cuenta bloqueada temporalmente. Intente en " + minutosRestantes + " minutos.");
             } else {
                 // Desbloquear automáticamente si ya pasó el tiempo
                 usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
@@ -71,7 +74,7 @@ public class AuthService {
         // 3. Verificar si está inactivo
         if (usuario.getEstado() == Usuario.EstadoUsuario.INACTIVO) {
             auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario inactivo");
-            throw new RuntimeException("Credenciales inválidas");
+            throw new AccesoNoAutorizadoException("Credenciales inválidas");
         }
 
         // 4. Verificar contraseña con BCrypt
@@ -80,12 +83,12 @@ public class AuthService {
 
             if (intentos >= MAX_INTENTOS) {
                 authPersistenceService.bloquearCuenta(usuario, ip);
-                throw new RuntimeException("Cuenta bloqueada por " + MAX_INTENTOS +
+                throw new AccesoNoAutorizadoException("Cuenta bloqueada por " + MAX_INTENTOS +
                         " intentos fallidos. Espere " + MINUTOS_BLOQUEO + " minutos.");
             }
 
             authPersistenceService.guardarIntentoFallido(usuario, intentos, correo, ip);
-            throw new RuntimeException("Credenciales inválidas");
+            throw new AccesoNoAutorizadoException("Credenciales inválidas");
         }
 
         // 5. Login exitoso — resetear intentos
@@ -154,14 +157,14 @@ public class AuthService {
     @Transactional
     public Map<String, String> refreshToken(String refreshTokenStr) {
         Token token = tokenRepository.findByRefreshToken(refreshTokenStr)
-                .orElseThrow(() -> new RuntimeException("Refresh token inválido"));
+                .orElseThrow(() -> new AccesoNoAutorizadoException("Refresh token inválido"));
 
         if (token.getRevocado()) {
-            throw new RuntimeException("Refresh token revocado");
+            throw new AccesoNoAutorizadoException("Refresh token revocado");
         }
 
         if (!jwtService.esValido(refreshTokenStr)) {
-            throw new RuntimeException("Refresh token expirado");
+            throw new AccesoNoAutorizadoException("Refresh token expirado");
         }
 
         Usuario usuario = token.getUsuario();
@@ -206,15 +209,15 @@ public class AuthService {
     @Transactional
     public Map<String, String> cambiarPassword(String tokenStr, String passwordActual, String passwordNueva) {
         if (!jwtService.esValido(tokenStr)) {
-            throw new RuntimeException("Token inválido");
+            throw new AccesoNoAutorizadoException("Token inválido");
         }
 
         String correo = jwtService.extraerCorreo(tokenStr);
         Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
 
         if (!passwordEncoder.matches(passwordActual, usuario.getPasswordHash())) {
-            throw new RuntimeException("La contraseña actual es incorrecta");
+            throw new ReglaNegocioException("La contraseña actual es incorrecta");
         }
 
         validarPoliticaPassword(passwordNueva);
@@ -281,7 +284,7 @@ public class AuthService {
     @Transactional
     public void revocarSesion(Long tokenId) {
         Token token = tokenRepository.findById(tokenId)
-                .orElseThrow(() -> new RuntimeException("Sesión no encontrada"));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Sesión no encontrada"));
         token.setRevocado(true);
         tokenRepository.save(token);
         auditoriaClient.registrar("SESION_REVOCADA", token.getUsuario().getCorreo(),
@@ -333,16 +336,16 @@ public class AuthService {
 
     private void validarPoliticaPassword(String password) {
         if (password == null || password.length() < 8) {
-            throw new RuntimeException("La contraseña debe tener al menos 8 caracteres");
+            throw new ReglaNegocioException("La contraseña debe tener al menos 8 caracteres");
         }
         if (!password.matches(".*[A-Z].*")) {
-            throw new RuntimeException("La contraseña debe tener al menos una letra mayúscula");
+            throw new ReglaNegocioException("La contraseña debe tener al menos una letra mayúscula");
         }
         if (!password.matches(".*[0-9].*")) {
-            throw new RuntimeException("La contraseña debe tener al menos un número");
+            throw new ReglaNegocioException("La contraseña debe tener al menos un número");
         }
         if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) {
-            throw new RuntimeException("La contraseña debe tener al menos un carácter especial");
+            throw new ReglaNegocioException("La contraseña debe tener al menos un carácter especial");
         }
     }
 }
