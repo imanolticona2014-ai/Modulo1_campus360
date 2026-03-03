@@ -8,16 +8,24 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Cliente REST para el Módulo de Auditoría (G9).
+ *
+ * CORRECCIÓN (Smell 2): RestTemplate ya no se crea con "new RestTemplate()"
+ * dentro del constructor. Ahora se inyecta como dependencia (DIP), lo que
+ * permite configurarlo con timeouts desde AppConfig y sustituirlo por un
+ * mock en pruebas unitarias sin necesidad de levantar el contexto de Spring.
+ */
 @Service
 public class AuditoriaClient {
 
-    // URL del módulo G9 - cuando esté disponible cambiar esta URL
     private static final String G9_URL = "http://localhost:8090/api/v1/auditoria/eventos";
 
     private final RestTemplate restTemplate;
 
-    public AuditoriaClient() {
-        this.restTemplate = new RestTemplate();
+    // Inyección por constructor — permite testear con MockRestTemplate
+    public AuditoriaClient(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
     public void registrar(String tipoEvento, String usuario, String ip, String descripcion) {
@@ -36,15 +44,15 @@ public class AuditoriaClient {
 
             restTemplate.postForEntity(G9_URL, request, String.class);
 
-            System.out.println("✅ [AUDITORIA G9] Evento registrado: " + tipoEvento + " | Usuario: " + usuario);
+            System.out.println("[AUDITORIA G9] Evento registrado: " + tipoEvento + " | Usuario: " + usuario);
 
         } catch (Exception e) {
-            // G9 no está disponible - registrar localmente sin interrumpir el flujo
-            System.out.println("⚠️ [AUDITORIA G9 - MOCK] " + tipoEvento +
-                    " | Usuario: " + usuario +
-                    " | IP: " + ip +
-                    " | Desc: " + descripcion +
-                    " | Timestamp: " + LocalDateTime.now());
+            // G9 no disponible — log local sin interrumpir el flujo principal
+            System.out.println("[AUDITORIA G9 - FALLBACK] " + tipoEvento
+                    + " | Usuario: " + usuario
+                    + " | IP: " + ip
+                    + " | Desc: " + descripcion
+                    + " | Timestamp: " + LocalDateTime.now());
         }
     }
 }

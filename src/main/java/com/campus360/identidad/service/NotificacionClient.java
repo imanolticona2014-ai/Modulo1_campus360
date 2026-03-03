@@ -7,16 +7,22 @@ import org.springframework.http.*;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Cliente REST para el Módulo de Notificaciones (G7).
+ *
+ * CORRECCIÓN (Smell 2): RestTemplate inyectado por constructor (mismo
+ * razonamiento que AuditoriaClient). Al ser el mismo @Bean declarado en
+ * AppConfig, ambos clientes comparten la misma configuración de timeouts.
+ */
 @Service
 public class NotificacionClient {
 
-    // URL del módulo G7 - cuando esté disponible cambiar esta URL
     private static final String G7_URL = "http://localhost:8070/api/v1/events";
 
     private final RestTemplate restTemplate;
 
-    public NotificacionClient() {
-        this.restTemplate = new RestTemplate();
+    public NotificacionClient(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
     public void enviarBienvenida(String correo, String nombre, String passwordTemporal) {
@@ -51,7 +57,7 @@ public class NotificacionClient {
         ));
     }
 
-    // ============ MÉTODO BASE ============
+    // Método base — punto único de envío al G7
     private void enviar(String eventType, String recipient, Map<String, String> data) {
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -65,13 +71,12 @@ public class NotificacionClient {
 
             restTemplate.postForEntity(G7_URL, request, String.class);
 
-            System.out.println("✅ [NOTIFICACION G7] Evento enviado: " + eventType + " a: " + recipient);
+            System.out.println("[NOTIFICACION G7] Evento enviado: " + eventType + " a: " + recipient);
 
         } catch (Exception e) {
-            // G7 no está disponible - simular envío sin interrumpir el flujo
-            System.out.println("⚠️ [NOTIFICACION G7 - MOCK] Tipo: " + eventType +
-                    " | Destinatario: " + recipient +
-                    " | Data: " + data);
+            // G7 no disponible — log local sin interrumpir el flujo principal
+            System.out.println("[NOTIFICACION G7 - FALLBACK] Tipo: " + eventType
+                    + " | Destinatario: " + recipient);
         }
     }
 }
