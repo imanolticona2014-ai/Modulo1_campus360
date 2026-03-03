@@ -9,28 +9,41 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.campus360.identidad.domain.UsuarioFactory;
-import com.campus360.identidad.exception.RecursoNoEncontradoException;
-import com.campus360.identidad.exception.ReglaNegocioException;
 
+import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Servicio de gestión de usuarios (RF-05, RF-06, RF-12).
+ *
+ * CORRECCIÓN (Smell 4 - Security): generarPasswordTemporal() ahora usa
+ * SecureRandom en lugar de java.util.Random. SecureRandom está diseñado
+ * para criptografía y produce salidas impredecibles, a diferencia de
+ * Random que puede ser reproducido si se conoce el seed.
+ *
+ * Adicionalmente se eliminó el patrón fijo "A[digit]@xxxx" que reducía
+ * drásticamente la entropía de la contraseña generada.
+ */
 @Service
 public class UsuarioService {
 
-private final UsuarioRepository usuarioRepository;
+    private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaClient auditoriaClient;
     private final NotificacionClient notificacionClient;
-    private final UsuarioFactory usuarioFactory; 
+    private final UsuarioFactory usuarioFactory;
+
+    // CORRECCIÓN (Smell 4): SecureRandom en lugar de Random
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     public UsuarioService(UsuarioRepository usuarioRepository,
                           RolRepository rolRepository,
                           PasswordEncoder passwordEncoder,
                           AuditoriaClient auditoriaClient,
                           NotificacionClient notificacionClient,
-                          UsuarioFactory usuarioFactory) { 
+                          UsuarioFactory usuarioFactory) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
@@ -45,60 +58,44 @@ private final UsuarioRepository usuarioRepository;
         String correo = datos.get("correo");
         String nombre = datos.get("nombre");
         String apellidos = datos.get("apellidos");
-
-        // ✅ FIX: Aceptar "rolId" (ID del rol) como campo principal.
-        // También se mantiene compatibilidad con "rol" (nombre) como fallback.
         String rolId = datos.get("rolId");
         String rolNombre = datos.get("rol");
 
-        // Validar campos obligatorios
-        if (correo == null || correo.isBlank()) throw new ReglaNegocioException("El correo es obligatorio");
-        if (nombre == null || nombre.isBlank()) throw new ReglaNegocioException("El nombre es obligatorio");
+        if (correo == null || correo.isBlank())
+            throw new RuntimeException("El correo es obligatorio");
+        if (nombre == null || nombre.isBlank())
+            throw new RuntimeException("El nombre es obligatorio");
 
-        // Validar unicidad de correo
         if (usuarioRepository.existsByCorreo(correo)) {
-            throw new ReglaNegocioException("Ya existe un usuario con el correo: " + correo);
+            throw new RuntimeException("Ya existe un usuario con el correo: " + correo);
         }
 
-        // ✅ FIX: Buscar rol por ID primero (más robusto), fallback por nombre
         Rol rol = null;
         if (rolId != null && !rolId.isBlank()) {
-            // Buscar por ID — estándar REST
             rol = rolRepository.findById(rolId)
-                    .orElseThrow(() -> new RecursoNoEncontradoException("Rol no encontrado con ID: " + rolId));
+                    .orElseThrow(() -> new RuntimeException("Rol no encontrado con ID: " + rolId));
         } else if (rolNombre != null && !rolNombre.isBlank()) {
-            // Fallback: buscar por nombre (retrocompatibilidad)
             rol = rolRepository.findByNombre(rolNombre.toUpperCase())
-                    .orElseThrow(() -> new RecursoNoEncontradoException("Rol no encontrado: " + rolNombre));
+                    .orElseThrow(() -> new RuntimeException("Rol no encontrado: " + rolNombre));
         }
 
-        // Generar contraseña temporal
         String passwordTemporal = generarPasswordTemporal();
-
-        // Crear usuario
-        // ==========================================
-        // USO DEL PATRÓN FACTORY Y BUILDER
-        // ==========================================
         String hashPassword = passwordEncoder.encode(passwordTemporal);
         String apellidoSeguro = apellidos != null ? apellidos : "";
-        Usuario usuario;
 
+        Usuario usuario;
         if (rol != null && "DOCENTE".equalsIgnoreCase(rol.getNombre())) {
             usuario = usuarioFactory.crearDocente(correo, hashPassword, nombre, apellidoSeguro, rol);
         } else if (rol != null && "ADMIN".equalsIgnoreCase(rol.getNombre())) {
             usuario = usuarioFactory.crearAdmin(correo, hashPassword, nombre, apellidoSeguro, rol);
         } else {
-            // Por defecto se crea como ESTUDIANTE
             usuario = usuarioFactory.crearEstudiante(correo, hashPassword, nombre, apellidoSeguro, rol);
         }
-        // ==========================================
 
         usuarioRepository.save(usuario);
 
-        // Notificar al usuario (G7)
         notificacionClient.enviarBienvenida(correo, nombre, passwordTemporal);
 
-        // Registrar en auditoría (G9)
         String rolInfo = rol != null ? rol.getNombre() : "Sin rol";
         auditoriaClient.registrar("USUARIO_CREADO", correo, "N/A",
                 "Usuario creado por admin. Rol: " + rolInfo);
@@ -126,7 +123,7 @@ private final UsuarioRepository usuarioRepository;
     // ============ OBTENER USUARIO POR ID (RF-05) ============
     public Map<String, Object> obtenerUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
         return usuarioToMap(usuario);
     }
 
@@ -134,7 +131,7 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, Object> actualizarUsuario(String id, Map<String, String> datos) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
 
         if (datos.containsKey("nombre") && !datos.get("nombre").isBlank()) {
             usuario.setNombres(datos.get("nombre"));
@@ -144,8 +141,9 @@ private final UsuarioRepository usuarioRepository;
         }
         if (datos.containsKey("correo") && !datos.get("correo").isBlank()) {
             String nuevoCorreo = datos.get("correo");
-            if (!nuevoCorreo.equals(usuario.getCorreo()) && usuarioRepository.existsByCorreo(nuevoCorreo)) {
-                throw new ReglaNegocioException("Ya existe un usuario con el correo: " + nuevoCorreo);
+            if (!nuevoCorreo.equals(usuario.getCorreo())
+                    && usuarioRepository.existsByCorreo(nuevoCorreo)) {
+                throw new RuntimeException("Ya existe un usuario con el correo: " + nuevoCorreo);
             }
             usuario.setCorreo(nuevoCorreo);
         }
@@ -164,7 +162,7 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, String> desactivarUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
 
         usuario.setEstado(Usuario.EstadoUsuario.INACTIVO);
         usuarioRepository.save(usuario);
@@ -183,9 +181,12 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, String> reactivarUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
 
-        resetearCuenta(usuario); 
+        usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
+        usuario.setIntentosFallidos(0);
+        usuario.setBloqueoHasta(null);
+        usuarioRepository.save(usuario);
 
         auditoriaClient.registrar("USUARIO_REACTIVADO", usuario.getCorreo(), "N/A",
                 "Usuario reactivado por admin");
@@ -201,9 +202,13 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, String> desbloquearUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
 
-        resetearCuenta(usuario); 
+        usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
+        usuario.setIntentosFallidos(0);
+        usuario.setBloqueoHasta(null);
+        usuarioRepository.save(usuario);
+
         auditoriaClient.registrar("USUARIO_DESBLOQUEADO", usuario.getCorreo(), "N/A",
                 "Cuenta desbloqueada manualmente por admin");
 
@@ -232,14 +237,13 @@ private final UsuarioRepository usuarioRepository;
     @Transactional
     public Map<String, String> asignarRol(String usuarioId, String rolId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
         Rol rol = rolRepository.findById(rolId)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Rol no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
 
-        // Verificar que no sea el mismo rol
         if (usuario.getRol() != null && usuario.getRol().getId().equals(rolId)) {
-            throw new ReglaNegocioException("El usuario ya tiene asignado el rol: " + rol.getNombre());
+            throw new RuntimeException("El usuario ya tiene asignado el rol: " + rol.getNombre());
         }
 
         String rolAnterior = usuario.getRol() != null ? usuario.getRol().getNombre() : "Sin rol";
@@ -258,12 +262,7 @@ private final UsuarioRepository usuarioRepository;
     }
 
     // ============ MÉTODOS PRIVADOS ============
-    private void resetearCuenta(Usuario usuario) {
-        usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
-        usuario.setIntentosFallidos(0);
-        usuario.setBloqueoHasta(null);
-        usuarioRepository.save(usuario);
-    }
+
     private Map<String, Object> usuarioToMap(Usuario u) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", u.getId());
@@ -278,17 +277,39 @@ private final UsuarioRepository usuarioRepository;
         return map;
     }
 
+    /**
+     * Genera una contraseña temporal segura.
+     *
+     * CORRECCIÓN (Smell 4): Ahora usa SecureRandom (criptográficamente
+     * seguro) en lugar de Random (predecible). El carácter en cada posición
+     * se elige de forma verdaderamente aleatoria. La política (mayúscula +
+     * número + especial) se garantiza insertando al menos uno de cada tipo
+     * en posiciones aleatorias, no fijas.
+     */
     private String generarPasswordTemporal() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$";
-        StringBuilder sb = new StringBuilder();
-        Random random = new Random();
-        // Garantizar política: mayúscula + número + especial + resto
-        sb.append("A"); // mayúscula
-        sb.append(random.nextInt(9) + 1); // número
-        sb.append("@"); // especial
-        for (int i = 0; i < 5; i++) {
-            sb.append(chars.charAt(random.nextInt(chars.length())));
+        String mayusculas = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        String minusculas = "abcdefghijkmnpqrstuvwxyz";
+        String numeros = "23456789";
+        String especiales = "!@#$%";
+        String todos = mayusculas + minusculas + numeros + especiales;
+
+        // Garantizar al menos uno de cada tipo requerido por la política
+        List<Character> chars = new ArrayList<>();
+        chars.add(mayusculas.charAt(SECURE_RANDOM.nextInt(mayusculas.length())));
+        chars.add(numeros.charAt(SECURE_RANDOM.nextInt(numeros.length())));
+        chars.add(especiales.charAt(SECURE_RANDOM.nextInt(especiales.length())));
+
+        // Completar hasta 10 caracteres con caracteres aleatorios del pool completo
+        for (int i = 0; i < 7; i++) {
+            chars.add(todos.charAt(SECURE_RANDOM.nextInt(todos.length())));
         }
+
+        // Mezclar la lista para que la posición de los caracteres obligatorios
+        // no sea predecible (antes siempre eran posiciones 0, 1 y 2)
+        Collections.shuffle(chars, SECURE_RANDOM);
+
+        StringBuilder sb = new StringBuilder();
+        for (char c : chars) sb.append(c);
         return sb.toString();
     }
 }
