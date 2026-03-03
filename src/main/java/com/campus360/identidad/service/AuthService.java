@@ -4,6 +4,7 @@ import com.campus360.identidad.config.AuthConstants;
 import com.campus360.identidad.domain.Token;
 import com.campus360.identidad.domain.Usuario;
 import com.campus360.identidad.exception.AccesoNoAutorizadoException;
+import com.campus360.identidad.exception.ReglaNegocioException;
 import com.campus360.identidad.repository.TokenRepository;
 import com.campus360.identidad.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,6 +15,22 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Servicio de autenticación (RF-01, RF-02, RF-09, RF-10).
+ *
+ * CORRECCIONES APLICADAS:
+ *
+ * Smell 3 - SRP: Esta clase ya no contiene lógica de sesiones (está en
+ * SessionService), ni lógica de contraseñas (está en PasswordService),
+ * ni validación de token (está en TokenService). AuthService ahora solo
+ * maneja: login, logout y refresh token.
+ *
+ * Magic Numbers eliminados: MAX_INTENTOS y MINUTOS_BLOQUEO se leen de
+ * AuthConstants en lugar de estar hardcodeados aquí.
+ *
+ * Excepciones propias: se usan AccesoNoAutorizadoException y
+ * ReglaNegocioException en lugar de RuntimeException genérico.
+ */
 @Service
 public class AuthService {
 
@@ -42,48 +59,82 @@ public class AuthService {
     @Transactional
     public Map<String, Object> login(String correo, String password, String dispositivo, String ip) {
 
-        Usuario usuario = obtenerUsuario(correo, ip);
+        // 1. Buscar usuario
+        Usuario usuario = usuarioRepository.findByCorreo(correo).orElse(null);
 
-        validarEstadoUsuario(usuario, correo, ip);
-        validarPassword(usuario, password, correo, ip);
-
-        return procesarLoginExitoso(usuario, dispositivo, ip);
-    }
-
-    // ============ REFRESH TOKEN (RF-10) — CORREGIDO ============
-    @Transactional
-    public Map<String, String> refreshToken(String refreshTokenStr) {
-        Token token = tokenRepository.findByRefreshToken(refreshTokenStr)
-                .orElseThrow(() -> new AccesoNoAutorizadoException("Refresh token inválido"));
-
-        if (token.getRevocado()) {
-            throw new AccesoNoAutorizadoException("Refresh token revocado");
+        if (usuario == null) {
+            auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario no existe");
+            throw new AccesoNoAutorizadoException("Credenciales inválidas");
         }
 
-        if (!jwtService.esValido(refreshTokenStr)) {
-            throw new AccesoNoAutorizadoException("Refresh token expirado");
+        // 2. Verificar si está bloqueado (con desbloqueo automático si ya pasó el tiempo)
+        if (usuario.getEstado() == Usuario.EstadoUsuario.BLOQUEADO) {
+            if (usuario.getBloqueoHasta() != null
+                    && LocalDateTime.now().isBefore(usuario.getBloqueoHasta())) {
+                long minutosRestantes = java.time.Duration
+                        .between(LocalDateTime.now(), usuario.getBloqueoHasta()).toMinutes() + 1;
+                throw new ReglaNegocioException(
+                        "Cuenta bloqueada temporalmente. Intente en " + minutosRestantes + " minutos.");
+            } else {
+                usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
+                usuario.setIntentosFallidos(0);
+                usuario.setBloqueoHasta(null);
+                usuarioRepository.save(usuario);
+            }
         }
 
-        Usuario usuario = token.getUsuario();
+        // 3. Verificar si está inactivo
+        if (usuario.getEstado() == Usuario.EstadoUsuario.INACTIVO) {
+            auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario inactivo");
+            throw new AccesoNoAutorizadoException("Credenciales inválidas");
+        }
+
+        // 4. Verificar contraseña con BCrypt
+        if (!passwordEncoder.matches(password, usuario.getPasswordHash())) {
+            int intentos = usuario.getIntentosFallidos() + 1;
+
+            if (intentos >= AuthConstants.MAX_INTENTOS) {
+                authPersistenceService.bloquearCuenta(usuario, ip);
+                throw new ReglaNegocioException("Cuenta bloqueada por " + AuthConstants.MAX_INTENTOS
+                        + " intentos fallidos. Espere " + AuthConstants.MINUTOS_BLOQUEO + " minutos.");
+            }
+
+            authPersistenceService.guardarIntentoFallido(usuario, intentos, correo, ip);
+            throw new AccesoNoAutorizadoException("Credenciales inválidas");
+        }
+
+        // 5. Login exitoso — resetear intentos
+        usuario.setIntentosFallidos(0);
+        usuarioRepository.save(usuario);
+
+        // 6. Generar tokens JWT
         String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "ESTUDIANTE";
+        String tokenStr = jwtService.generarToken(usuario.getId(), usuario.getCorreo(), rol);
+        String refreshTokenStr = jwtService.generarRefreshToken(usuario.getId());
 
-        // Generar NUEVO token y NUEVO refreshToken
-        String nuevoToken = jwtService.generarToken(usuario.getId(), usuario.getCorreo(), rol);
-        String nuevoRefreshToken = jwtService.generarRefreshToken(usuario.getId());
-
-        // Revocar el token anterior
-        token.setRevocado(true);
+        // 7. Guardar token en BD
+        Token token = new Token(tokenStr, refreshTokenStr, usuario, dispositivo, ip);
         tokenRepository.save(token);
 
-        // Crear nuevo registro con tokens completamente nuevos
-        Token nuevoTokenEntity = new Token(nuevoToken, nuevoRefreshToken, usuario,
-                token.getDispositivo(), token.getIpAddress());
-        tokenRepository.save(nuevoTokenEntity);
+        // 8. Registrar en auditoría
+        auditoriaClient.registrar("LOGIN_EXITOSO", correo, ip, "Login correcto - Rol: " + rol);
 
-        Map<String, String> response = new HashMap<>();
-        response.put("token", nuevoToken);
-        response.put("refreshToken", nuevoRefreshToken);
-        response.put("mensaje", "Token renovado exitosamente");
+        // 9. Preparar respuesta
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", tokenStr);
+        response.put("refreshToken", refreshTokenStr);
+        response.put("tokenId", token.getId());
+
+        Map<String, String> usuarioMap = new HashMap<>();
+        usuarioMap.put("id", usuario.getId());
+        usuarioMap.put("correo", usuario.getCorreo());
+        usuarioMap.put("nombre",
+                usuario.getNombres() + " " + (usuario.getApellidos() != null ? usuario.getApellidos() : ""));
+        usuarioMap.put("rol", rol);
+
+        response.put("usuario", usuarioMap);
+        response.put("mensaje", "Login exitoso");
+
         return response;
     }
 
@@ -102,108 +153,37 @@ public class AuthService {
         return Map.of("mensaje", "Sesión cerrada exitosamente");
     }
 
-    // ============ MÉTODOS PRIVADOS ============
-    private Usuario obtenerUsuario(String correo, String ip) {
-    Usuario usuario = usuarioRepository.findByCorreo(correo).orElse(null);
+    // ============ REFRESH TOKEN (RF-10) ============
+    @Transactional
+    public Map<String, String> refreshToken(String refreshTokenStr) {
+        Token token = tokenRepository.findByRefreshToken(refreshTokenStr)
+                .orElseThrow(() -> new AccesoNoAutorizadoException("Refresh token inválido"));
 
-    if (usuario == null) {
-        auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario no existe");
-        throw new AccesoNoAutorizadoException("Credenciales inválidas");
-    }
-
-    return usuario;
-}
-
-    private void validarEstadoUsuario(Usuario usuario, String correo, String ip) {
-
-        if (usuario.getEstado() == Usuario.EstadoUsuario.BLOQUEADO) {
-            if (usuario.getBloqueoHasta() != null && LocalDateTime.now().isBefore(usuario.getBloqueoHasta())) {
-                long minutosRestantes = java.time.Duration
-                        .between(LocalDateTime.now(), usuario.getBloqueoHasta())
-                        .toMinutes() + 1;
-
-                throw new AccesoNoAutorizadoException(
-                        "Cuenta bloqueada temporalmente. Intente en " + minutosRestantes + " minutos.");
-            } else {
-                usuario.setEstado(Usuario.EstadoUsuario.ACTIVO);
-                usuario.setIntentosFallidos(0);
-                usuario.setBloqueoHasta(null);
-                usuarioRepository.save(usuario);
-            }
+        if (token.getRevocado()) {
+            throw new AccesoNoAutorizadoException("Refresh token revocado");
         }
 
-        if (usuario.getEstado() == Usuario.EstadoUsuario.INACTIVO) {
-            auditoriaClient.registrar("LOGIN_FALLIDO", correo, ip, "Usuario inactivo");
-            throw new AccesoNoAutorizadoException("Credenciales inválidas");
+        if (!jwtService.esValido(refreshTokenStr)) {
+            throw new AccesoNoAutorizadoException("Refresh token expirado");
         }
-    }
 
-    private void validarPassword(Usuario usuario, String password, String correo, String ip) {
+        Usuario usuario = token.getUsuario();
+        String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "ESTUDIANTE";
 
-        if (!passwordEncoder.matches(password, usuario.getPasswordHash())) {
+        String nuevoToken = jwtService.generarToken(usuario.getId(), usuario.getCorreo(), rol);
+        String nuevoRefreshToken = jwtService.generarRefreshToken(usuario.getId());
 
-            int intentos = usuario.getIntentosFallidos() + 1;
-
-            if (intentos >= AuthConstants.MAX_INTENTOS) {
-                authPersistenceService.bloquearCuenta(usuario, ip);
-                throw new AccesoNoAutorizadoException(
-                    "Cuenta bloqueada por " + AuthConstants.MAX_INTENTOS +
-                    " intentos fallidos. Espere " + AuthConstants.MINUTOS_BLOQUEO + " minutos.");
-            }
-
-            authPersistenceService.guardarIntentoFallido(usuario, intentos, correo, ip);
-            throw new AccesoNoAutorizadoException("Credenciales inválidas");
-        }
-    }
-
-    private Map<String, Object> procesarLoginExitoso(
-            Usuario usuario, String dispositivo, String ip) {
-
-        usuario.setIntentosFallidos(0);
-        usuarioRepository.save(usuario);
-
-        String rol = usuario.getRol() != null
-                ? usuario.getRol().getNombre()
-                : "ESTUDIANTE";
-
-        String tokenStr = jwtService.generarToken(
-                usuario.getId(), usuario.getCorreo(), rol);
-
-        String refreshTokenStr =
-                jwtService.generarRefreshToken(usuario.getId());
-
-        Token token = new Token(tokenStr, refreshTokenStr, usuario, dispositivo, ip);
+        token.setRevocado(true);
         tokenRepository.save(token);
 
-        auditoriaClient.registrar(
-                "LOGIN_EXITOSO", usuario.getCorreo(), ip,
-                "Login correcto - Rol: " + rol);
+        Token nuevoTokenEntity = new Token(nuevoToken, nuevoRefreshToken, usuario,
+                token.getDispositivo(), token.getIpAddress());
+        tokenRepository.save(nuevoTokenEntity);
 
-        return construirRespuesta(usuario, rol, tokenStr, refreshTokenStr, token.getId());
-    }
-
-    private Map<String, Object> construirRespuesta(
-            Usuario usuario,
-            String rol,
-            String tokenStr,
-            String refreshTokenStr,
-            Long tokenId) {
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("token", tokenStr);
-        response.put("refreshToken", refreshTokenStr);
-        response.put("tokenId", tokenId);
-
-        Map<String, String> usuarioMap = new HashMap<>();
-        usuarioMap.put("id", usuario.getId());
-        usuarioMap.put("correo", usuario.getCorreo());
-        usuarioMap.put("nombre", usuario.getNombres() + " " +
-                (usuario.getApellidos() != null ? usuario.getApellidos() : ""));
-        usuarioMap.put("rol", rol);
-
-        response.put("usuario", usuarioMap);
-        response.put("mensaje", "Login exitoso");
-
+        Map<String, String> response = new HashMap<>();
+        response.put("token", nuevoToken);
+        response.put("refreshToken", nuevoRefreshToken);
+        response.put("mensaje", "Token renovado exitosamente");
         return response;
     }
 }

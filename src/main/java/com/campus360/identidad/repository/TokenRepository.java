@@ -12,36 +12,43 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repositorio de tokens.
+ *
+ * ADICIÓN (necesaria por Smell 3): Se agrega findAllActivas() para que
+ * SesionService pueda filtrar tokens activos directamente en la BD
+ * en lugar de hacer findAll() y filtrar en memoria.
+ */
 @Repository
 public interface TokenRepository extends JpaRepository<Token, Long> {
-    List<Token> findAll();
 
-    // Buscar tokens de un usuario
     List<Token> findByUsuarioId(String usuarioId);
-    
-    // Buscar tokens activos (no revocados y no expirados)
+
     @Query("SELECT t FROM Token t WHERE t.usuario.id = :usuarioId AND t.revocado = false AND t.fechaExpiracion > :ahora")
-    List<Token> findTokensActivosByUsuarioId(@Param("usuarioId") String usuarioId, @Param("ahora") LocalDateTime ahora);
-    
-    // Buscar por token
+    List<Token> findTokensActivosByUsuarioId(@Param("usuarioId") String usuarioId,
+                                              @Param("ahora") LocalDateTime ahora);
+
+    /**
+     * Devuelve todos los tokens activos del sistema (no revocados y no expirados).
+     * Reemplaza el patrón findAll() + filtro en memoria del código original.
+     */
+    @Query("SELECT t FROM Token t WHERE t.revocado = false AND t.fechaExpiracion > :ahora")
+    List<Token> findAllActivas(@Param("ahora") LocalDateTime ahora);
+
     Optional<Token> findByToken(String token);
-    
-    // Buscar por refresh token
+
     Optional<Token> findByRefreshToken(String refreshToken);
-    
-    // Revocar un token específico
+
     @Modifying
     @Transactional
     @Query("UPDATE Token t SET t.revocado = true WHERE t.id = :tokenId")
     void revocarToken(@Param("tokenId") Long tokenId);
-    
-    // Revocar todos los tokens de un usuario
+
     @Modifying
     @Transactional
     @Query("UPDATE Token t SET t.revocado = true WHERE t.usuario.id = :usuarioId")
     void revocarTokensByUsuarioId(@Param("usuarioId") String usuarioId);
-    
-    // Eliminar tokens expirados (para limpieza programada)
+
     @Modifying
     @Transactional
     @Query("DELETE FROM Token t WHERE t.fechaExpiracion < :fechaLimite")
