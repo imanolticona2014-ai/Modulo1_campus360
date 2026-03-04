@@ -15,16 +15,13 @@ async function handleLogin(event) {
     const correo = document.getElementById('correo').value;
     const password = document.getElementById('password').value;
 
-    // Limpiar mensaje de error previo
     mostrarErrorLogin('');
 
-    // Validación básica antes de llamar al backend
     if (!correo || !password) {
         mostrarErrorLogin('Por favor completa todos los campos.');
         return;
     }
 
-    // Deshabilitar botón mientras carga (evita doble submit)
     const btn = document.querySelector('button[type="submit"]');
     btn.disabled = true;
     btn.textContent = 'Iniciando sesión...';
@@ -40,17 +37,11 @@ async function handleLogin(event) {
         console.log('Login response:', data);
 
         if (response.ok) {
-            // Guardar en localStorage
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.usuario));
             localStorage.setItem('tokenId', data.tokenId);
 
-            console.log('Usuario guardado:', data.usuario);
-
-            // Redirigir según el rol
             const rol = data.usuario.rol;
-            console.log('Redirigiendo a:', rol);
-
             if (rol === 'ADMIN') {
                 window.location.href = '/admin.html';
             } else if (rol === 'ESTUDIANTE') {
@@ -61,15 +52,11 @@ async function handleLogin(event) {
                 window.location.href = '/estudiante.html';
             }
         } else {
-            // ✅ FIX: Obtener el mensaje real del backend
             const mensaje = data.message || data.error || 'Credenciales inválidas';
-
-            // ✅ FIX: Detectar si es bloqueo para mostrar mensaje especial
             const esBloqueado = mensaje.toLowerCase().includes('bloqueada') ||
                                 mensaje.toLowerCase().includes('bloqueado');
 
             if (esBloqueado) {
-                // Extraer minutos del mensaje si vienen (ej: "Espere 15 minutos")
                 const match = mensaje.match(/(\d+)\s*minuto/i);
                 const minutos = match ? match[1] : '15';
                 mostrarErrorLogin(
@@ -84,20 +71,14 @@ async function handleLogin(event) {
         console.error('Error en login:', error);
         mostrarErrorLogin('Sin conexión con el servidor. Verifique su red e intente nuevamente.');
     } finally {
-        // Re-habilitar botón siempre
         btn.disabled = false;
         btn.textContent = 'Iniciar Sesión';
     }
 }
 
-/**
- * Muestra un mensaje de error inline debajo del formulario.
- * tipo: '' (normal) | 'bloqueado' (estilo especial naranja/rojo)
- */
 function mostrarErrorLogin(mensaje, tipo = '') {
     let errorDiv = document.getElementById('login-error');
 
-    // Crear el div si no existe aún
     if (!errorDiv) {
         errorDiv = document.createElement('div');
         errorDiv.id = 'login-error';
@@ -111,7 +92,6 @@ function mostrarErrorLogin(mensaje, tipo = '') {
         return;
     }
 
-    // Estilos base
     errorDiv.style.display = 'block';
     errorDiv.style.marginTop = '12px';
     errorDiv.style.padding = '12px 16px';
@@ -121,12 +101,10 @@ function mostrarErrorLogin(mensaje, tipo = '') {
     errorDiv.style.lineHeight = '1.5';
 
     if (tipo === 'bloqueado') {
-        // Estilo especial para bloqueo — naranja oscuro
         errorDiv.style.backgroundColor = '#fff3cd';
         errorDiv.style.color = '#856404';
         errorDiv.style.border = '1px solid #ffc107';
     } else {
-        // Estilo para error genérico — rojo suave
         errorDiv.style.backgroundColor = '#f8d7da';
         errorDiv.style.color = '#721c24';
         errorDiv.style.border = '1px solid #f5c6cb';
@@ -153,24 +131,114 @@ async function handleLogout() {
 }
 
 // ============================================
-// FUNCIONES COMUNES (existen en todas las páginas)
+// CAMBIAR CONTRASEÑA (compartido — todos los roles)
+// ============================================
+
+async function cambiarPassword(event) {
+    event.preventDefault();
+
+    const passwordActual  = document.getElementById('passwordActual').value;
+    const passwordNueva   = document.getElementById('passwordNueva').value;
+    const passwordConfirm = document.getElementById('passwordConfirm').value;
+
+    const msgDiv = document.getElementById('cambiar-password-msg');
+
+    // Validación frontend
+    if (!passwordActual || !passwordNueva || !passwordConfirm) {
+        mostrarMensajePassword('Por favor completa todos los campos.', 'error', msgDiv);
+        return;
+    }
+
+    if (passwordNueva !== passwordConfirm) {
+        mostrarMensajePassword('La nueva contraseña y su confirmación no coinciden.', 'error', msgDiv);
+        return;
+    }
+
+    if (passwordNueva.length < 8) {
+        mostrarMensajePassword('La nueva contraseña debe tener al menos 8 caracteres.', 'error', msgDiv);
+        return;
+    }
+
+    const btn = document.getElementById('btn-cambiar-password');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    try {
+        const response = await fetch(`${API_URL}/api/v1/auth/cambiar-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ passwordActual, passwordNueva })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            mostrarMensajePassword('✅ Contraseña actualizada correctamente. Por seguridad, inicia sesión nuevamente.', 'success', msgDiv);
+            // Limpiar campos
+            document.getElementById('passwordActual').value = '';
+            document.getElementById('passwordNueva').value = '';
+            document.getElementById('passwordConfirm').value = '';
+            // Redirigir al login después de 2 segundos (el backend revocó el token)
+            setTimeout(() => {
+                localStorage.clear();
+                window.location.href = '/index.html';
+            }, 2000);
+        } else {
+            const mensaje = data.error || data.message || 'Error al cambiar la contraseña';
+            mostrarMensajePassword('❌ ' + mensaje, 'error', msgDiv);
+        }
+    } catch (error) {
+        console.error('Error al cambiar contraseña:', error);
+        mostrarMensajePassword('Sin conexión con el servidor.', 'error', msgDiv);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Cambiar Contraseña';
+    }
+}
+
+function mostrarMensajePassword(mensaje, tipo, div) {
+    if (!div) return;
+    div.style.display = 'block';
+    div.style.marginTop = '12px';
+    div.style.padding = '12px 16px';
+    div.style.borderRadius = '8px';
+    div.style.fontSize = '14px';
+    div.style.fontWeight = '500';
+    div.style.lineHeight = '1.5';
+
+    if (tipo === 'success') {
+        div.style.backgroundColor = '#d1e7dd';
+        div.style.color = '#0a3622';
+        div.style.border = '1px solid #a3cfbb';
+    } else {
+        div.style.backgroundColor = '#f8d7da';
+        div.style.color = '#721c24';
+        div.style.border = '1px solid #f5c6cb';
+    }
+    div.textContent = mensaje;
+}
+
+// ============================================
+// FUNCIONES COMUNES
 // ============================================
 
 async function cargarEstadisticas() {
-    const statsTotal = document.getElementById('stats-total');
-    const statsActivas = document.getElementById('stats-activas');
+    const statsTotal     = document.getElementById('stats-total');
+    const statsActivas   = document.getElementById('stats-activas');
     const statsRevocadas = document.getElementById('stats-revocadas');
     const statsExpiradas = document.getElementById('stats-expiradas');
-    
-    // Si no existe el elemento, salir (estamos en otra página)
+
     if (!statsTotal) return;
-    
+
     try {
         const response = await fetch(`${API_URL}/api/v1/sesiones/estadisticas`);
         const stats = await response.json();
-        
-        statsTotal.textContent = stats.total || 0;
-        statsActivas.textContent = stats.activas || 0;
+
+        statsTotal.textContent     = stats.total    || 0;
+        statsActivas.textContent   = stats.activas  || 0;
         statsRevocadas.textContent = stats.revocadas || 0;
         statsExpiradas.textContent = stats.expiradas || 0;
     } catch (error) {
@@ -181,11 +249,11 @@ async function cargarEstadisticas() {
 async function cargarRoles() {
     const container = document.getElementById('roles-container');
     if (!container) return;
-    
+
     try {
         const response = await fetch(`${API_URL}/api/v1/usuarios/roles`);
         const roles = await response.json();
-        
+
         if (roles && roles.length > 0) {
             container.innerHTML = roles.map(rol => `
                 <div class="role-card">
@@ -208,47 +276,35 @@ async function cargarRoles() {
 // ============================================
 
 async function cargarDashboardAdmin() {
-    // Actualizar navbar
-    const navName = document.getElementById('user-name');
-    const navEmail = document.getElementById('user-email');
+    const navName   = document.getElementById('user-name');
+    const navEmail  = document.getElementById('user-email');
     const navAvatar = document.getElementById('user-avatar');
-    if (navName) navName.textContent = currentUser.nombreCompleto || currentUser.nombre;
-    if (navEmail) navEmail.textContent = currentUser.correo;
+    if (navName)   navName.textContent   = currentUser.nombreCompleto || currentUser.nombre;
+    if (navEmail)  navEmail.textContent  = currentUser.correo;
     if (navAvatar) navAvatar.textContent = currentUser.nombre.charAt(0).toUpperCase();
-    // Verificar que estamos en admin.html
-    const userName = document.getElementById('user-name');
-    const userEmail = document.getElementById('user-email');
-    
-    if (userName && userEmail) {
-        userName.textContent = currentUser.nombreCompleto || currentUser.nombre;
-        userEmail.textContent = currentUser.correo;
-    }
 
-    // Mensaje de bienvenida en el dashboard
     const bienvenida = document.getElementById('bienvenida');
     if (bienvenida) {
         const nombreMostrar = currentUser.nombreCompleto || currentUser.nombre;
         bienvenida.innerHTML = `<p>¡Hola, <strong>${nombreMostrar}</strong>! Bienvenido al panel de administración de Campus360.</p>`;
     }
-    
-    // Cargar cada sección solo si existe el elemento
-    await cargarEstadisticas(); // Ya verifica internamente
-    await cargarRoles(); // Ya verifica internamente
+
+    await cargarEstadisticas();
+    await cargarRoles();
     await cargarTodasLasSesiones();
 }
 
 async function cargarTodasLasSesiones() {
     const tbody = document.getElementById('sesiones-tbody');
     if (!tbody) return;
-    
+
     try {
-        // NUEVO ENDPOINT: trae TODAS las sesiones de TODOS los usuarios
         const response = await fetch(`${API_URL}/api/v1/sesiones/todas`, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        
+
         const sesiones = await response.json();
-        
+
         if (sesiones && sesiones.length > 0) {
             tbody.innerHTML = sesiones.map(s => `
                 <tr>
@@ -275,28 +331,27 @@ async function cargarTodasLasSesiones() {
 }
 
 async function buscarSesionesUsuario() {
-    const input = document.getElementById('buscarUsuario');
+    const input     = document.getElementById('buscarUsuario');
     const resultado = document.getElementById('resultadoBusqueda');
-    const tbody = document.getElementById('sesiones-tbody');
-    
+    const tbody     = document.getElementById('sesiones-tbody');
+
     if (!input || !resultado || !tbody) return;
-    
+
     const termino = input.value.trim();
     if (!termino) {
         resultado.innerHTML = '<div class="alert alert-error">Ingresa un ID, correo o nombre</div>';
         return;
     }
-    
+
     try {
-        // Mostrar loading
         tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Buscando...</td></tr>';
-        
+
         const response = await fetch(`${API_URL}/api/v1/sesiones/buscar?termino=${encodeURIComponent(termino)}`, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        
+
         const sesiones = await response.json();
-        
+
         if (sesiones && sesiones.length > 0) {
             tbody.innerHTML = sesiones.map(s => `
                 <tr>
@@ -330,22 +385,19 @@ async function buscarSesionesUsuario() {
 // ============================================
 
 async function cargarDashboardEstudiante() {
-    // Actualizar navbar
     const navAvatar = document.getElementById('user-avatar');
     if (navAvatar) navAvatar.textContent = currentUser.nombre.charAt(0).toUpperCase();
-    const userName = document.getElementById('user-name');
+    const userName  = document.getElementById('user-name');
     const userEmail = document.getElementById('user-email');
-    
-    if (userName) userName.textContent = currentUser.nombreCompleto || currentUser.nombre;
+    if (userName)  userName.textContent  = currentUser.nombreCompleto || currentUser.nombre;
     if (userEmail) userEmail.textContent = currentUser.correo;
 
-    // Mensaje de bienvenida
     const bienvenida = document.getElementById('bienvenida');
     if (bienvenida) {
         const nombreMostrar = currentUser.nombreCompleto || currentUser.nombre;
         bienvenida.innerHTML = `<p>¡Hola, <strong>${nombreMostrar}</strong>! Bienvenido a tu portal estudiantil de Campus360.</p>`;
     }
-    
+
     await Promise.all([
         cargarInfoCuenta(),
         cargarMisSesionesEstudiante(),
@@ -356,7 +408,7 @@ async function cargarDashboardEstudiante() {
 async function cargarInfoCuenta() {
     const info = document.getElementById('info-cuenta');
     if (!info) return;
-    
+
     info.innerHTML = `
         <p><strong>ID:</strong> ${currentUser.id}</p>
         <p><strong>Correo:</strong> ${currentUser.correo}</p>
@@ -368,19 +420,19 @@ async function cargarInfoCuenta() {
 async function cargarSesionActualEstudiante() {
     const sesionActual = document.getElementById('sesion-actual');
     if (!sesionActual) return;
-    
+
     try {
         const response = await fetch(`${API_URL}/api/v1/sesiones/usuario/${currentUser.id}`, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        
+
         const sesiones = await response.json();
         const tokenActual = localStorage.getItem('token');
-        
+
         if (sesiones && sesiones.length > 0) {
-            const actual = sesiones.find(s => tokenActual && s.tokenPreview && 
+            const actual = sesiones.find(s => tokenActual && s.tokenPreview &&
                 tokenActual.includes(s.tokenPreview.replace('...', '').replace('jwt_', '')));
-            
+
             if (actual) {
                 sesionActual.innerHTML = `
                     <p><strong>Dispositivo:</strong> ${actual.dispositivo || 'Desconocido'}</p>
@@ -391,7 +443,7 @@ async function cargarSesionActualEstudiante() {
                 return;
             }
         }
-        
+
         sesionActual.innerHTML = '<p>No se pudo identificar la sesión actual</p>';
     } catch (error) {
         console.error('Error cargando sesión actual:', error);
@@ -402,14 +454,14 @@ async function cargarSesionActualEstudiante() {
 async function cargarMisSesionesEstudiante() {
     const tbody = document.getElementById('mis-sesiones-tbody');
     if (!tbody) return;
-    
+
     try {
         const response = await fetch(`${API_URL}/api/v1/sesiones/usuario/${currentUser.id}`, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        
+
         const sesiones = await response.json();
-        
+
         if (sesiones && sesiones.length > 0) {
             tbody.innerHTML = sesiones.map(s => `
                 <tr>
@@ -439,22 +491,19 @@ async function cargarMisSesionesEstudiante() {
 // ============================================
 
 async function cargarDashboardDocente() {
-    // Actualizar navbar
     const navAvatar = document.getElementById('user-avatar');
     if (navAvatar) navAvatar.textContent = currentUser.nombre.charAt(0).toUpperCase();
-    const userName = document.getElementById('user-name');
+    const userName  = document.getElementById('user-name');
     const userEmail = document.getElementById('user-email');
-    
-    if (userName) userName.textContent = currentUser.nombreCompleto || currentUser.nombre;
+    if (userName)  userName.textContent  = currentUser.nombreCompleto || currentUser.nombre;
     if (userEmail) userEmail.textContent = currentUser.correo;
 
-    // Mensaje de bienvenida
     const bienvenida = document.getElementById('bienvenida');
     if (bienvenida) {
         const nombreMostrar = currentUser.nombreCompleto || currentUser.nombre;
         bienvenida.innerHTML = `<p>¡Hola, <strong>${nombreMostrar}</strong>! Bienvenido a tu portal docente de Campus360.</p>`;
     }
-    
+
     await Promise.all([
         cargarInfoCuentaDocente(),
         cargarMisSesionesDocente()
@@ -464,7 +513,7 @@ async function cargarDashboardDocente() {
 async function cargarInfoCuentaDocente() {
     const info = document.getElementById('info-cuenta');
     if (!info) return;
-    
+
     info.innerHTML = `
         <p><strong>ID:</strong> ${currentUser.id}</p>
         <p><strong>Correo:</strong> ${currentUser.correo}</p>
@@ -476,14 +525,14 @@ async function cargarInfoCuentaDocente() {
 async function cargarMisSesionesDocente() {
     const tbody = document.getElementById('mis-sesiones-tbody');
     if (!tbody) return;
-    
+
     try {
         const response = await fetch(`${API_URL}/api/v1/sesiones/usuario/${currentUser.id}`, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        
+
         const sesiones = await response.json();
-        
+
         if (sesiones && sesiones.length > 0) {
             tbody.innerHTML = sesiones.map(s => `
                 <tr>
@@ -514,28 +563,30 @@ async function cargarMisSesionesDocente() {
 
 async function revocarSesion(tokenId) {
     if (!confirm('¿Estás seguro de que quieres revocar esta sesión?')) return;
-    
+
     try {
         const response = await fetch(`${API_URL}/api/v1/sesiones/${tokenId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        
+
         if (response.ok) {
+            // CORRECCIÓN CU-07: si el usuario revocó su propia sesión, redirigir al login
+            const miTokenId = localStorage.getItem('tokenId');
+            if (miTokenId && String(tokenId) === String(miTokenId)) {
+                alert('Has revocado tu sesión actual. Serás redirigido al login.');
+                localStorage.clear();
+                window.location.href = '/index.html';
+                return;
+            }
+
             alert('✅ Sesión revocada exitosamente');
-            
-            // ACTUALIZAR TODO AUTOMÁTICAMENTE
+
             const path = window.location.pathname;
             if (path.includes('admin.html')) {
-                await Promise.all([
-                    cargarEstadisticas(),      // Actualiza los 4 cuadros
-                    cargarTodasLasSesiones()   // Actualiza la tabla
-                ]);
+                await Promise.all([cargarEstadisticas(), cargarTodasLasSesiones()]);
             } else if (path.includes('estudiante.html')) {
-                await Promise.all([
-                    cargarMisSesionesEstudiante(),
-                    cargarSesionActualEstudiante()
-                ]);
+                await Promise.all([cargarMisSesionesEstudiante(), cargarSesionActualEstudiante()]);
             } else if (path.includes('docente.html')) {
                 await cargarMisSesionesDocente();
             }
@@ -555,30 +606,25 @@ async function revocarSesion(tokenId) {
 document.addEventListener('DOMContentLoaded', async () => {
     const path = window.location.pathname;
     console.log('Página actual:', path);
-    
-    // Si estamos en index.html, no hacemos nada
+
     if (path.includes('index.html') || path === '/') {
         console.log('Página de login, no se requiere autenticación');
         return;
     }
-    
-    // Recuperar sesión
+
     const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    
+    const savedUser  = localStorage.getItem('user');
+
     if (!savedToken || !savedUser) {
         console.log('No hay sesión, redirigiendo a login');
         window.location.href = '/index.html';
         return;
     }
-    
+
     try {
         currentToken = savedToken;
-        currentUser = JSON.parse(savedUser);
-        
-        console.log('Sesión recuperada:', currentUser);
-        
-        // Validar según la página
+        currentUser  = JSON.parse(savedUser);
+
         if (path.includes('admin.html')) {
             if (currentUser.rol !== 'ADMIN') {
                 alert('No tienes permisos para acceder al panel de administración');
@@ -586,7 +632,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             await cargarDashboardAdmin();
-            
+
         } else if (path.includes('estudiante.html')) {
             if (currentUser.rol !== 'ESTUDIANTE') {
                 alert('Esta página es solo para estudiantes');
@@ -594,7 +640,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             await cargarDashboardEstudiante();
-            
+
         } else if (path.includes('docente.html')) {
             if (currentUser.rol !== 'DOCENTE') {
                 alert('Esta página es solo para docentes');
@@ -603,7 +649,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             await cargarDashboardDocente();
         }
-        
+
     } catch (error) {
         console.error('Error en inicialización:', error);
         alert('Error al cargar el panel. Por favor, inicia sesión nuevamente.');

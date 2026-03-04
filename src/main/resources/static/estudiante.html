@@ -23,7 +23,6 @@
             <button onclick="handleLogout()" class="btn btn-secondary btn-sm">Cerrar Sesión</button>
         </div>
     </nav>
-
     <div class="container">
 
         <!-- Bienvenida -->
@@ -44,10 +43,44 @@
             <div id="info-cuenta" class="info-card"></div>
         </div>
 
+        <!-- Cambiar Contraseña (CU-04) -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🔑 Cambiar Contraseña</h2>
+            </div>
+            <div class="info-card">
+                <p style="margin-bottom: 16px; color: #6b7280; font-size: 14px;">
+                    Por seguridad, tu contraseña debe tener al menos 8 caracteres, una mayúscula, un número y un símbolo.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 12px; max-width: 400px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151;">Contraseña actual</label>
+                        <input type="password" id="passwordActual" placeholder="Tu contraseña actual"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151;">Nueva contraseña</label>
+                        <input type="password" id="passwordNueva" placeholder="Nueva contraseña"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151;">Confirmar nueva contraseña</label>
+                        <input type="password" id="passwordConfirm" placeholder="Repite la nueva contraseña"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <button id="btn-cambiar-password" onclick="cambiarPassword(event)" class="btn btn-primary"
+                        style="margin-top: 4px; align-self: flex-start;">
+                        Cambiar Contraseña
+                    </button>
+                    <div id="cambiar-password-msg" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Sesión Actual -->
         <div class="card">
             <div class="card-header">
-                <h2>🔑 Sesión Actual</h2>
+                <h2>🔒 Sesión Actual</h2>
             </div>
             <div id="sesion-actual" class="info-card">
                 <p class="loading">Cargando información de la sesión</p>
@@ -59,38 +92,22 @@
             <div class="card-header">
                 <h2>🖥️ Mis Sesiones Activas</h2>
             </div>
-            <p style="margin-bottom: 1rem; color: #6b7280; font-size: 0.9rem;">
-                Sesiones abiertas en diferentes dispositivos. Si reconoces alguna sospechosa, puedes revocarla.
-            </p>
             <div class="table-container">
-                <table>
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Dispositivo</th>
-                            <th>Dirección IP</th>
-                            <th>Fecha de Inicio</th>
-                            <th>Expira en</th>
+                            <th>IP</th>
+                            <th>Inicio</th>
+                            <th>Expira</th>
                             <th>Estado</th>
                             <th>Acción</th>
                         </tr>
                     </thead>
                     <tbody id="mis-sesiones-tbody">
-                        <tr><td colspan="6" class="empty-state"><p>No hay sesiones activas</p></td></tr>
+                        <tr><td colspan="6" class="loading">Cargando sesiones...</td></tr>
                     </tbody>
                 </table>
-            </div>
-        </div>
-
-        <!-- Seguridad -->
-        <div class="card">
-            <div class="card-header">
-                <h2>🔒 Información de Seguridad</h2>
-            </div>
-            <div style="color: #6b7280; font-size: 0.9rem; line-height: 1.8;">
-                <p>• Las sesiones expiran automáticamente después de 30 minutos.</p>
-                <p>• Puedes tener múltiples sesiones activas en diferentes dispositivos.</p>
-                <p>• Si revocas una sesión, el usuario será desconectado inmediatamente.</p>
-                <p>• Para mayor seguridad, cierra sesión en dispositivos que no reconozcas.</p>
             </div>
         </div>
 

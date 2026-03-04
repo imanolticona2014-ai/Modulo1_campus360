@@ -23,7 +23,6 @@
             <button onclick="handleLogout()" class="btn btn-secondary btn-sm">Cerrar Sesión</button>
         </div>
     </nav>
-
     <div class="container">
 
         <!-- Bienvenida -->
@@ -44,82 +43,59 @@
             <div id="info-cuenta" class="info-card"></div>
         </div>
 
-        <!-- Sesiones Activas -->
+        <!-- Cambiar Contraseña (CU-04) -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🔑 Cambiar Contraseña</h2>
+            </div>
+            <div class="info-card">
+                <p style="margin-bottom: 16px; color: #6b7280; font-size: 14px;">
+                    Por seguridad, tu contraseña debe tener al menos 8 caracteres, una mayúscula, un número y un símbolo.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 12px; max-width: 400px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151;">Contraseña actual</label>
+                        <input type="password" id="passwordActual" placeholder="Tu contraseña actual"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151;">Nueva contraseña</label>
+                        <input type="password" id="passwordNueva" placeholder="Nueva contraseña"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151;">Confirmar nueva contraseña</label>
+                        <input type="password" id="passwordConfirm" placeholder="Repite la nueva contraseña"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <button id="btn-cambiar-password" onclick="cambiarPassword(event)" class="btn btn-primary"
+                        style="margin-top: 4px; align-self: flex-start;">
+                        Cambiar Contraseña
+                    </button>
+                    <div id="cambiar-password-msg" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mis Sesiones Activas -->
         <div class="card">
             <div class="card-header">
                 <h2>🖥️ Mis Sesiones Activas</h2>
             </div>
-            <p style="margin-bottom: 1rem; color: #6b7280; font-size: 0.9rem;">
-                Dispositivos donde has iniciado sesión recientemente.
-            </p>
             <div class="table-container">
-                <table>
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Dispositivo</th>
-                            <th>Dirección IP</th>
-                            <th>Fecha de Inicio</th>
-                            <th>Expira en</th>
+                            <th>IP</th>
+                            <th>Inicio</th>
+                            <th>Expira</th>
                             <th>Estado</th>
                             <th>Acción</th>
                         </tr>
                     </thead>
                     <tbody id="mis-sesiones-tbody">
-                        <tr><td colspan="6" class="empty-state"><p>Cargando sesiones...</p></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Cursos -->
-        <div class="card">
-            <div class="card-header">
-                <h2>📚 Mis Cursos</h2>
-            </div>
-            <div class="roles-grid">
-                <div class="role-card">
-                    <h4>Matemáticas Básicas</h4>
-                    <div class="permissions">
-                        <span class="permission-tag">MAT-101</span>
-                        <span class="permission-tag">30 estudiantes</span>
-                    </div>
-                </div>
-                <div class="role-card">
-                    <h4>Programación Java</h4>
-                    <div class="permissions">
-                        <span class="permission-tag">INF-202</span>
-                        <span class="permission-tag">25 estudiantes</span>
-                    </div>
-                </div>
-                <div class="role-card">
-                    <h4>Bases de Datos</h4>
-                    <div class="permissions">
-                        <span class="permission-tag">INF-301</span>
-                        <span class="permission-tag">28 estudiantes</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Horario -->
-        <div class="card">
-            <div class="card-header">
-                <h2>📅 Horario de Clases</h2>
-            </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Día</th>
-                            <th>Curso</th>
-                            <th>Hora</th>
-                            <th>Aula</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>Lunes</td><td>Matemáticas Básicas</td><td>08:00 - 10:00</td><td>A-101</td></tr>
-                        <tr><td>Miércoles</td><td>Programación Java</td><td>10:00 - 12:00</td><td>Lab-201</td></tr>
-                        <tr><td>Viernes</td><td>Bases de Datos</td><td>14:00 - 16:00</td><td>Lab-202</td></tr>
+                        <tr><td colspan="6" class="loading">Cargando sesiones...</td></tr>
                     </tbody>
                 </table>
             </div>
