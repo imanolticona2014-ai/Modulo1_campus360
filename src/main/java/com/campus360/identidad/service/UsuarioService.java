@@ -114,6 +114,7 @@ public class UsuarioService {
     }
 
     // ============ LISTAR USUARIOS (RF-05) ============
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> listarUsuarios() {
         return usuarioRepository.findAll().stream()
                 .map(this::usuarioToMap)
@@ -121,6 +122,7 @@ public class UsuarioService {
     }
 
     // ============ OBTENER USUARIO POR ID (RF-05) ============
+    @Transactional(readOnly = true)
     public Map<String, Object> obtenerUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
@@ -220,6 +222,7 @@ public class UsuarioService {
     }
 
     // ============ LISTAR ROLES (RF-06) ============
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> listarRoles() {
         return rolRepository.findAll().stream()
                 .map(rol -> {
